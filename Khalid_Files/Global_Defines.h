@@ -6,11 +6,12 @@
  * 
  */
 
-#ifndef OURDEFINES_H_
-#define OURDEFINES_H_
+#ifndef GLOBAL_DEFINES_H_
+#define GLOBAL_DEFINES_H_
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/time.h>
 
 
 /***************************************
@@ -23,7 +24,7 @@
 
 
 /***************************************
- *        Thread Number Structure      *
+ *        Thread Source Enum           *
  ***************************************/
 typedef enum
 {
@@ -35,13 +36,13 @@ typedef enum
 } Sources;
 
 
-
 /***************************************
  *        Message Structure            *
  ***************************************/
 typedef struct MsgStruct 
 {
 	uint8_t Source;
+	char LogLevel[10];				//Expcected values: INFO | WARNING | ERROR | CRITICAL
 	char Msg[100];
 } MsgStruct;
 
@@ -55,4 +56,13 @@ typedef struct Pthread_ArgsStruct
 }Pthread_ArgsStruct;
 
 
-#endif /* OURDEFINES_H_ */
+
+/***************************************
+ *          POSIX Qeueus               *
+ ***************************************/
+#define MAX_SIZE_Q				1024
+#define MAIN_QUEUE				"/MAIN_POSIX_Q"
+#define LOGGING_QUEUE			"/LOGGING_POSIX_Q"
+
+
+#endif /* GLOBAL_DEFINES_H_ */

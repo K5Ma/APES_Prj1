@@ -1,0 +1,1 @@
+./Debug/SocketThread.c.o ./Debug/TempThread.c.o ./Debug/main.c.o ./Debug/My_Time.c.o ./Debug/LoggingThread.c.o ./Debug/LuxThread.c.o

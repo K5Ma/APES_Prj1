@@ -1,14 +1,13 @@
 /*
- * LogThread.h
+ * LoggingThread.h
  *
  *      Author: Khalid AlAwadhi
  *      Spring 2019
  */
+#ifndef LOGGINGTHREAD_H_
+#define LOGGINGTHREAD_H_
 
-#ifndef LOGTHREAD_H_
-#define LOGTHREAD_H_
-
-#include "OurDefines.h"
+#include "Global_Defines.h"
 
 
 /**************************************************************************************************************
@@ -23,6 +22,7 @@
 void * LoggingThread(void * args);
 
 
+
 /**************************************************************************************************************
  * USAGE: This function will be called initally when the Logging Thread is first initalized. 
  *
@@ -33,6 +33,7 @@ void * LoggingThread(void * args);
  *
  **************************************************************************************************************/
 void LogFile_Init(char* LogFilePath);
+
 
 
 /**************************************************************************************************************
@@ -49,4 +50,6 @@ void LogFile_Init(char* LogFilePath);
 void LogFile_Log(char* LogFilePath, MsgStruct* Message);
 
 
-#endif /* LOGTHREAD_H_ */
+
+
+#endif /* LOGGINGTHREAD_H_ */
