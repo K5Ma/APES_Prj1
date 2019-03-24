@@ -2,6 +2,8 @@
 #include <sys/time.h>
 #include <stdlib.h>
 #include <mqueue.h>
+#include <unistd.h>
+
 
 #include "LoggingThread.h"
 #include "Global_Defines.h"
@@ -11,24 +13,54 @@
 
 void * LoggingThread(void * args)
 {
-	struct Pthread_ArgsStruct *Arguments = args;		//Get args
-
+	/* Get the passed arguments */
+	struct Pthread_ArgsStruct *Arguments = args;
+	
+	/* Init the log file */
 	LogFile_Init(Arguments->LogFile_Path);
 	
-	/* Create LogThread RX POSIX Q */
-	mqd_t mq;											//Message queue descriptor
-	//ssize_t Msg_Bytes;								//Stores the number of bytes recivied
 	
+	/* Create the Logging Thread POSIX queue */
+	mqd_t MQ;											//Message queue descriptor
+
 	/* Initialize the queue attributes */
 	struct mq_attr attr;
-	attr.mq_flags = 0;									//message queue flags
-	attr.mq_maxmsg = 10;								//maximum number of messages
-	attr.mq_msgsize = MAX_SIZE_Q;						//maximum message size
-	attr.mq_curmsgs = 0;								//number of messages currently queued
+	attr.mq_flags = 0;									/* Flags: 0 or O_NONBLOCK */
+	attr.mq_maxmsg = 10;								/* Max. # of messages on queue */
+	attr.mq_msgsize = sizeof(MsgStruct) * 2;				/* Max. message size (bytes) */
+	attr.mq_curmsgs = 0;								/* # of messages currently in queue */
 	
-	/* Open the Thread1 queue to store pointers into it - Write only */
-	//mq = mq_open(THREAD_1_QUEUE, O_CREAT | O_WRONLY | O_NONBLOCK, 0666, &attr);
+	/* Create the Logging Thread queue to get messages from other pThreads */
+	MQ = mq_open(LOGGING_QUEUE, O_CREAT | O_RDONLY, 0666, &attr);
+	if(MQ == (mqd_t) -1)
+	{
+		perror("!! ERROR in Logging Thread => mq_open()");
+	}
 	
+	
+	MsgStruct MsgRecv;									//Temp variable used to store received messages
+	
+	/* Loop forever waiting for Msgs from other pThreads */
+	while(1)
+	{
+		/* Block until a msg is received */
+		if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == 0)
+		{
+			perror("!! ERROR in Logging Thread => mq_receive()");
+		}
+		/* If a msg is received, log it */
+		else
+		{
+			LogFile_Log(Arguments->LogFile_Path, &MsgRecv);
+		}
+	}
+
+	if(mq_unlink(LOGGING_QUEUE) != 0)
+	{
+		perror("!! ERROR in Logging Thread => mq_unlink()");
+	}
+	
+	printf("DEBUG: LOGGING PTHREAD HAS FINISHED AND WILL EXIT\n");
 }
 
 
@@ -43,7 +75,7 @@ void LogFile_Init(char* LogFilePath)
 	
 	if(MyFileP == NULL)
 	{
-		printf("!!FATAL ERROR: Could not open log file: %s\n", LogFilePath);
+		printf("!!! FATAL ERROR: Could not open log file: %s\n", LogFilePath);
 		exit(1); 
 	}
 	
@@ -52,13 +84,13 @@ void LogFile_Init(char* LogFilePath)
 	 * So, if we change anything in fprintf() we will also need to go to the printf() and
 	 * change the text there. Using string and storing our text there makes it easier
 	 * as we only need to change the text in one place rather than two. */
-	char* Line1 = "[%lf] Logging Thread: Logfile succesfully created!\n\n";
+	char* Line1 = "[%lf] Logging Thread: Logfile successfully created!\n\n";
 	char* Line2 = "***************************************\n";
 	char* Line3 = "*     APES Project 1:                 *\n";
 	char* Line4 = "*       *insert cool name here*       *\n";
 	char* Line5 = "*                                     *\n";
 	char* Line6 = "*  By: Khalid AlAwadhi | Poorn Mehta  *\n";
-	char* Line7 = "*                              v1.1   *\n";
+	char* Line7 = "*                              v1.2   *\n";
 	char* Line8 = "***************************************\n\n";
 
 	fprintf(MyFileP, Line1, GetCurrentTime());
@@ -92,7 +124,6 @@ void LogFile_Init(char* LogFilePath)
 
 
 
-
 void LogFile_Log(char* LogFilePath, MsgStruct* Message)
 {
 	/* File pointer */
@@ -103,69 +134,101 @@ void LogFile_Log(char* LogFilePath, MsgStruct* Message)
 	
 	if(MyFileP == NULL)
 	{
-		printf("!ERROR: Could not open log file: %s\n", LogFilePath);
-		printf("	|--> Logging from source %u failed\n", Message->Source);
-		printf("	|--> Log Level: %s failed\n", Message->LogLevel);
+		printf("!! ERROR: Could not open log file: %s\n", LogFilePath);
+		printf("	|--> Logging from source '%u' failed\n", Message->Source);
+		printf("	|--> Destination: %u\n", Message->Dest);
+		printf("	|--> Log Level: %s\n", Message->LogLevel);
 		printf("	L--> Message: %s\n\n", Message->Msg);
 		return;
 	}
+	
+	/* Get the source number and turn it into a string. 
+	 * This is done for readability in the logging file */
+	char* Source_text; 
+	switch(Message->Source)
+	{
+		case Main:
+			Source_text = "Main Thread";
+			break;
+
+		case Logging:
+			Source_text = "Logging Thread";
+			break;
+
+		case Socket:
+			Source_text = "Socket Thread";
+			break;
+
+		case Temp:
+			Source_text = "Temp Thread";
+			break;
+
+		case Lux:
+			Source_text = "Lux Thread";
+			break;
+
+		default:
+			Source_text = "Unknown Thread";
+			break;
+	}
+	
 
 	/* This string will store the text to output later on (just a temp variable) */
 	char* text;
 
-	switch(Message->Source)
+	switch(Message->Dest)
 	{
 		case Main:
-			text = "[%lf] Main Thread(%s): %s\n";
-			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			text = "[%lf] Main Thread(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 
 			#ifdef DEBUG_PRINTF
-			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 			#endif
 			break;
 
 		case Logging:
-			text = "[%lf] Logging Thread(%s): %s\n";
-			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			text = "[%lf] Logging Thread(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 
 			#ifdef DEBUG_PRINTF
-			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 			#endif
 			break;
 
 		case Socket:
-			text = "[%lf] Socket Thread(%s): %s\n";
-			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			text = "[%lf] Socket Thread(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 
 			#ifdef DEBUG_PRINTF
-			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 			#endif
 			break;
 
 		case Temp:
-			text = "[%lf] Temp Thread(%s): %s\n";
-			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			text = "[%lf] Temp Thread(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 
 			#ifdef DEBUG_PRINTF
-			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 			#endif
 			break;
 
 		case Lux:
-			text = "[%lf] Lux Thread(%s): %s\n";
-			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			text = "[%lf] Lux Thread(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 
 			#ifdef DEBUG_PRINTF
-			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 			#endif
 			break;
 
 		default:
-			text = "[%lf] ERROR - No thread source! Msg(%s): %s\n";
-			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			text = "[%lf] Unknown Thread '%u'(%s): Msg(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 
 			#ifdef DEBUG_PRINTF
-			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg);
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
 			#endif
 			break;
 	}

@@ -11,7 +11,7 @@
 
 
 /**************************************************************************************************************
- * USAGE: This function contains all what the logging pthread will do. 
+ * USAGE: This function contains all what the Logging pThread will do. 
  *
  * PARAMETERS:
  *            - NONE
@@ -24,7 +24,7 @@ void * LoggingThread(void * args);
 
 
 /**************************************************************************************************************
- * USAGE: This function will be called initally when the Logging Thread is first initalized. 
+ * USAGE: This function will be called initially when the Logging Thread is first initialized. 
  *
  * PARAMETERS:
  *            - char* LogFilePath => Path to the log file
@@ -38,7 +38,7 @@ void LogFile_Init(char* LogFilePath);
 
 /**************************************************************************************************************
  * USAGE: This function will log messages received by the Logging Thread. It will decode the message and
- *        specify what source it came from and log it to a file. 
+ *        specify the destination and source it came from and log it to a file.  
  *
  * PARAMETERS:
  *            - char* LogFilePath => Path to the log file

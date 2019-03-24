@@ -1,5 +1,5 @@
 /*
- * OurDefines.h
+ * Global_Defines.h
  *
  *      Author: Khalid AlAwadhi
  *      Spring 2019
@@ -16,7 +16,7 @@
 
 /***************************************
  *  This define is used to indicate    *
- *  wheather to print all logfiles to  *
+ *  whether to print all logfiles to  *
  *  stdout or not                      *
  ***************************************/
 #define DEBUG_PRINTF 1
@@ -24,15 +24,16 @@
 
 
 /***************************************
- *        Thread Source Enum           *
+ *  Thread Numbering Enum:             *
+ *  Used for source and destination    *   
  ***************************************/
 typedef enum
 {
-	Main = 0,
-	Logging = 1,
-	Socket = 2,
-	Temp = 3,
-	Lux = 4
+	Main = 1,
+	Logging = 2,
+	Socket = 3,
+	Temp = 4,
+	Lux = 5
 } Sources;
 
 
@@ -42,13 +43,14 @@ typedef enum
 typedef struct MsgStruct 
 {
 	uint8_t Source;
-	char LogLevel[10];				//Expcected values: INFO | WARNING | ERROR | CRITICAL
-	char Msg[100];
+	uint8_t Dest;
+	char LogLevel[150];				//Expected values: INFO | WARNING | ERROR | CRITICAL
+	char Msg[150];
 } MsgStruct;
 
 
 /***************************************
- *      Pthread Argument Structure     *
+ *      pThread Argument Structure     *
  ***************************************/
 typedef struct Pthread_ArgsStruct
 {
@@ -58,11 +60,13 @@ typedef struct Pthread_ArgsStruct
 
 
 /***************************************
- *          POSIX Qeueus               *
+ *          POSIX Queues               *
  ***************************************/
-#define MAX_SIZE_Q				1024
 #define MAIN_QUEUE				"/MAIN_POSIX_Q"
 #define LOGGING_QUEUE			"/LOGGING_POSIX_Q"
+#define SOCKET_QUEUE			"/SOCKET_POSIX_Q"
+#define TEMP_QUEUE				"/TEMP_POSIX_Q"
+#define LUX_QUEUE				"/LUX_POSIX_Q"
 
 
 #endif /* GLOBAL_DEFINES_H_ */
