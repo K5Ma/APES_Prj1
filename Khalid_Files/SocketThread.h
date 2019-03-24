@@ -11,7 +11,7 @@
 
 
 /**************************************************************************************************************
- * USAGE: This function contains all what the socket pthread will do. 
+ * USAGE: This function contains all what the socket pThread will do. 
  *
  * PARAMETERS:
  *            - NONE
@@ -21,6 +21,18 @@
  **************************************************************************************************************/
 void * SocketThread(void * args);
 
+
+
+/**************************************************************************************************************
+ * USAGE: This function will be called initially when the Socket Thread is first initialized. 
+ *
+ * PARAMETERS:
+ *            - NONE
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void SocketThread_Init();
 
 
 #endif /* SOCKETTHREAD_H_ */
