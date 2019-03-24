@@ -15,36 +15,6 @@ int flag = 0;
 pthread_t LightThread, TempThread;
 pthread_mutex_t lock;
 
-
-/*    pthread_mutex_lock(&lock); 
-  
-// Critical Section
-  
-    pthread_mutex_unlock(&lock); */
-
-/*
-//main start  
-	if (pthread_mutex_init(&lock, NULL) != 0) 
-	{ 
-		printf("\n mutex init has failed\n"); 
-		return 1; 
-	} 
-  
-    while(i < 2) 
-    { 
-        err = pthread_create(&(tid[i]), NULL, &trythis, NULL); 
-        if (error != 0) 
-            printf("\nThread can't be created :[%s]", strerror(error)); 
-        i++; 
-    } 
-  
-    pthread_join(tid[0], NULL); 
-    pthread_join(tid[1], NULL); 
-
-//main end
-    pthread_mutex_destroy(&lock); 
-*/
-
 // Structure for passing file name. Can add other parameters for future use
 struct thread_struct
 {
@@ -113,6 +83,9 @@ void *LightThread_function(void *thread_input)
 			float lux = get_lux();
 			pthread_mutex_unlock(&lock);
 
+			//Instead of this fprintf, send message using SendToThread to Logger
+			//Then check for message from socket
+			//If there is a message, decode and send appropirate response
 			fprintf(fptr, "Lux Level at *%lu.%06lu* is >>%f<<\n", current_time.tv_sec, current_time.tv_usec, lux);
 
 			flag = 0;
@@ -168,8 +141,19 @@ void *TempThread_function(void *thread_input)
 			fprintf(fptr, "\nTemperature Sensor Initialization Failed\n");
 			pthread_exit(0);
 		}
-		pthread_mutex_unlock(&lock);
-	}
+
+		if (write_tlow_reg(0x03,0x5551) < 0)
+		{
+			printf("write failed\n");
+		}
+
+		if (read_tlow_reg(0x03) < 0)
+		{
+			printf("read failed\n");
+		}
+
+			pthread_mutex_unlock(&lock);
+		}
 
 	// Handling failed attempt
 	else

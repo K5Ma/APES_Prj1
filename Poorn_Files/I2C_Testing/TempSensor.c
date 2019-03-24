@@ -30,11 +30,16 @@ int write_tlow_reg(int reg, uint16_t value )
 {
 	write_pointer_reg(reg);
 	
-	if (write(fd, &value, 2) != 2)
+	uint8_t tmp = value >> 8;
+	value &= 0x00FF;
+	uint8_t buf[3] = {0x03, tmp, value};
+
+	if (write(fd, &buf, 3) != 3)
 	{
 		perror("T-low register write error");
 		return -1;
 	}
+
 	return 0;
 }
 
@@ -124,15 +129,17 @@ int write_config_register_default( )
 uint16_t read_tlow_reg(int reg)
 {
 	uint16_t value;
-	uint8_t v[1]={0};
+	uint8_t v[2]={0};
 	write_pointer_reg(reg);
-	if (read(fd, v, 1) != 1)
+	if (read(fd, v, 2) != 2)
 	{
 		perror("T-low register read error");
 		return -1;
 	}
-	value = (v[0]<<4 | (v[1] >> 4 & 0XF));
-	printf("T-low register value is: %d \n", value);
+//	value = (v[0]<<4 | (v[1] >> 4 & 0XF));
+//	value = (v[0] << 8) | (v[1] & 0xF0);
+	float val = (v[0] << 4) * (0.0625);
+	printf("T-low register value is: %x %x\n", v[0], v[1]);
 	return value;
 }
 

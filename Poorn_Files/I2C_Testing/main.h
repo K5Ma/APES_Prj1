@@ -27,35 +27,4 @@
 #include <time.h>       
 #include <mqueue.h>
 
-
-pthread_t logger_id, light_id, temp_id, socket_id; 
-
-char file_name[50];
-
-typedef struct              //structure to be sent
-{             
-char timestamp[50];     
-int source_id;
-int log_level;
-int data;
-float value;
-char random_string[50];
-}mystruct;
-
-struct threadParam
-{
-char *filename;
-};
-
-int light_client(void);
-void *func_light(void);
-int temp_client(void);
-void *func_temp(void);
-void* logger_task(void);
-
-void* func_socket(void);
-
-int check_status(void);
-int startup_test(void);
-
 #endif
