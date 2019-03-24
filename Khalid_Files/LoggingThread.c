@@ -27,7 +27,7 @@ void * LoggingThread(void * args)
 	struct mq_attr attr;
 	attr.mq_flags = 0;									/* Flags: 0 or O_NONBLOCK */
 	attr.mq_maxmsg = 10;								/* Max. # of messages on queue */
-	attr.mq_msgsize = sizeof(MsgStruct) * 2;				/* Max. message size (bytes) */
+	attr.mq_msgsize = sizeof(MsgStruct);				/* Max. message size (bytes) */
 	attr.mq_curmsgs = 0;								/* # of messages currently in queue */
 	
 	/* Create the Logging Thread queue to get messages from other pThreads */
@@ -44,7 +44,7 @@ void * LoggingThread(void * args)
 	while(1)
 	{
 		/* Block until a msg is received */
-		if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == 0)
+		if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
 		{
 			perror("!! ERROR in Logging Thread => mq_receive()");
 		}
