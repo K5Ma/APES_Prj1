@@ -14,12 +14,13 @@
 
 /*
  * LAST WORKING ON:
- * 
+ * MAKING TINED RECIVE WORK IN SOCKET PTHREAD. 
+ * ALSO NEED TO WHILE(1) SOMEWHERE IN THE SOCKET PTHREAD
  */
 
 /*########################################################################################
  #                                    TO-DO:                                             #
- ########################################	#################################################
+ #########################################################################################
  *****************************************************************************************
  * MAIN THREAD                                                                           *
  *****************************************************************************************
@@ -28,14 +29,21 @@
  * 2- [] IMPLEMENT METHOD TO CHECK CHILD THREADS ARE ALIVE AT SOME INTERVAL
  * 
  * 3- [] IMPLEMENT METHOD TO CLEANLY EXIT WHEN REQUESTED (MAKE CHILD EXITS PROPERLY
- * 		 THEN MAIN
+ * 		 THEN MAIN)
  * 
  * 4- [] LOG ERROR INFORMATION AND INDICATE ERROR WITH BB USR LEDS (EG. MISSING SENSOR)
  * 
  * 5- [COMPLETED] CREATE MY OWN TIME GET FUNCTION
  * 				L--> FOUND IN My_Time .h/.c
- * 6- [] 
-
+ * 
+ * 6- [] IMPLEMENT SIGNAL HANDLER
+ * 
+ * 7- [] DISPLAY THREAD IDS AT START-UP 
+ * 
+ * 8- [] KILL ONLY SPECIFIED THREADS
+ * 
+ * 9- [] 
+ * 
  *****************************************************************************************
  * LOGGING THREAD                                                                        *
  *****************************************************************************************
@@ -67,13 +75,19 @@
  * 
  * 12- [COMPLETED] MAKE LOGGING THREAD BLOCK AND WAIT FOR ANY MESSAGES
  * 
- * 13- [] 
+ * 13- [COMPLETED] HANDLE INITS OF OTHER THREAD TO LOGGING THREAD
+ * 
+ * 14- [] IMPLEMENT SIGNAL KILL 
+ * 
+ * 15- []
  * 
  * 
  *****************************************************************************************
  * SOCKET THREAD                                                                         *
  *****************************************************************************************
- * 1- [] 
+ * 1- [] CREATE THE INTERNAL STRUCTURE OF THE SOCKET QUEUE 
+ * 
+ * 2- [] 
  * 
  * 
  *****************************************************************************************
@@ -133,6 +147,8 @@ int main(int argc, char *argv[])
 	
 	char User_LogFilePath[100];							//This will store the log file path location to pass to the Logging pthread
 	
+	printf("Starting...\n\n");
+	
 	/* Check if the user entered a logfile path */
 	if(argc > 1)
 	{
@@ -148,11 +164,11 @@ int main(int argc, char *argv[])
 	}
 	
 	
-	/* Store filepath to pass to pthreads */
+	/* Store filepath to pass to pThreads */
 	strcpy(args.LogFile_Path, User_LogFilePath);
 
 
-	/* Create the needed pthreads */
+	/* Create the needed pThreads */
 	pthread_t Log_pThread, Socket_pThread, Temp_pThread, Lux_pThread;
 	
 	
@@ -163,37 +179,55 @@ int main(int argc, char *argv[])
 	}
 	else
 	{
-		printf("[%lf] SUCCESS: Created Logging Thread!\n", GetCurrentTime());
+		printf("[%lf] SUCCESS: Created Logging Thread!\n\n", GetCurrentTime());
 	}
 	
 	
-	/* DEBUG: TESTING SENDING A MSG FROM MAIN EVERY 5 SECS */
-	uint8_t Num = 0;
 	
-	while(1)
+	
+	//BIST SHOULD BE HERE
+	
+	
+	
+	
+	/* Create Socket pThread */
+	if(pthread_create(&Socket_pThread, NULL, &SocketThread, NULL) != 0)
 	{
-		sleep(5);
-		
-		char test_text[60];
-		
-		sprintf(test_text, "This is a test from main number: %u", Num);
-		
-		MsgStruct TempMsg =
-		{
-			.Source = Main,
-			.Dest = Logging,
-			.LogLevel = "INFO",
-		};
-		
-		strcpy(TempMsg.Msg, test_text);
-		
-		SendToThreadQ(&TempMsg);
-		
-		Num++;
+		perror("!! ERROR in Main Thread => pthread_create()");
 	}
-	
+	else
+	{
+		printf("[%lf] SUCCESS: Created Socket Thread!\n\n", GetCurrentTime());
+	}
 	
 	/* Wait for pThreads to finish */
-	pthread_join(Log_pThread, NULL);	
+	pthread_join(Log_pThread, NULL);
+	pthread_join(Socket_pThread, NULL);	
 	
 }
+
+
+//	/* DEBUG: TESTING SENDING A MSG FROM MAIN EVERY 5 SECS */
+//	uint8_t Num = 0;
+//	
+//	while(1)
+//	{
+//		sleep(5);
+//		
+//		char test_text[60];
+//		
+//		sprintf(test_text, "This is a test from main number: %u", Num);
+//		
+//		MsgStruct TempMsg =
+//		{
+//			.Source = Main,
+//			.Dest = Logging,
+//			.LogLevel = "INFO",
+//		};
+//		
+//		strcpy(TempMsg.Msg, test_text);
+//		
+//		SendToThreadQ(&TempMsg);
+//		
+//		Num++;
+//	}

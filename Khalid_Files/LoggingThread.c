@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <mqueue.h>
 #include <unistd.h>
-
+#include <sys/syscall.h>
 
 #include "LoggingThread.h"
 #include "Global_Defines.h"
@@ -36,8 +36,7 @@ void * LoggingThread(void * args)
 	{
 		perror("!! ERROR in Logging Thread => mq_open()");
 	}
-	
-	
+		
 	MsgStruct MsgRecv;									//Temp variable used to store received messages
 	
 	/* Loop forever waiting for Msgs from other pThreads */
@@ -82,9 +81,9 @@ void LogFile_Init(char* LogFilePath)
 	/* NOTE:
 	 * Statements are stored in strings because we want to have a debug output functionality. 
 	 * So, if we change anything in fprintf() we will also need to go to the printf() and
-	 * change the text there. Using string and storing our text there makes it easier
+	 * change the text t#include <sys/syscall.h>here. Using string and storing our text there makes it easier
 	 * as we only need to change the text in one place rather than two. */
-	char* Line1 = "[%lf] Logging Thread: Logfile successfully created!\n\n";
+	char* Line1 = "[%lf] Logging Thread: Logfile successfully created! TID: %ld\n\n";
 	char* Line2 = "***************************************\n";
 	char* Line3 = "*     APES Project 1:                 *\n";
 	char* Line4 = "*       *insert cool name here*       *\n";
@@ -93,7 +92,7 @@ void LogFile_Init(char* LogFilePath)
 	char* Line7 = "*                              v1.2   *\n";
 	char* Line8 = "***************************************\n\n";
 
-	fprintf(MyFileP, Line1, GetCurrentTime());
+	fprintf(MyFileP, Line1, GetCurrentTime(), syscall(SYS_gettid));
 	fprintf(MyFileP, Line2);
 	fprintf(MyFileP, Line3);
 	fprintf(MyFileP, Line4);
@@ -110,7 +109,7 @@ void LogFile_Init(char* LogFilePath)
 
 
 #ifdef DEBUG_PRINTF
-	printf(Line1, GetCurrentTime());
+	printf(Line1, GetCurrentTime(), syscall(SYS_gettid));
 	printf(Line2);
 	printf(Line3);
 	printf(Line4);
