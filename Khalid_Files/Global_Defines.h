@@ -69,4 +69,15 @@ typedef struct Pthread_ArgsStruct
 #define LUX_QUEUE				"/LUX_POSIX_Q"
 
 
+
+/***************************************
+ *  Log_error() Function Parameters:   *
+ *        (found in POSIX_Qs.h)        *
+ ***************************************/
+#define LOGGING_AND_LOCAL				0x01
+#define LOGGING_ONLY					0x02
+#define LOCAL_ONLY						0x03 
+ 
+ 
+
 #endif /* GLOBAL_DEFINES_H_ */

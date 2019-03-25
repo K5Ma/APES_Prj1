@@ -22,5 +22,16 @@
 void * TempThread(void * args);
 
 
+/**************************************************************************************************************
+ * USAGE: This function will be called initially when the Temp Thread is first initialized. 
+ *
+ * PARAMETERS:
+ *            - NONE
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void TempThread_Init();
+
 
 #endif /* TEMPTHREAD_H_ */

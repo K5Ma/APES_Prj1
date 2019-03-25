@@ -29,35 +29,41 @@ void * SocketThread(void * args)
 	MQ = mq_open(SOCKET_QUEUE, O_CREAT | O_RDWR , 0664, &attr);
 	if(MQ == (mqd_t) -1)
 	{
-		perror("!! ERROR in SocketThread Thread => mq_open()");
+		perror("!! ERROR in SocketThread => mq_open()");
 	}
 	
 	
-	//SOCKET SHOULD WAIT UNTIL CMD IS GOT FROM CLIENT
+//	//SOCKET SHOULD WAIT UNTIL CMD IS GOT FROM CLIENT
+//	
+//	//ONCE CMD IS GOT, STORE IT IN LOCAL STRUCT
+//	MsgStruct MsgRecv;
+//	
+//	//SEND CMD TO WANTED Q	
+////	SendToThreadQ(&MsgRecv);
+//	
+//	//SOCKET Q MUST WAIT FOR A RESPONSE, ELSE GIVE ERROR
+//	struct timespec tm;
+//	clock_gettime(CLOCK_REALTIME, &tm);
+//	tm.tv_sec += 1;
+//	
+//	if( 0 > mq_timedreceive(MQ, &MsgRecv, sizeof(MsgStruct), NULL, &tm) )
+//	{
+//		
+//	}
+//	else
+//	{
+//		perror("!! ERROR in Socket Thread => mq_receive()");
+//	}
+//	
+//	//WAIT FOR NEXT CLIENT CMD
+//	
 	
-	//ONCE CMD IS GOT, STORE IT IN LOCAL STRUCT
-	MsgStruct MsgRecv;
-	
-	//SEND CMD TO WANTED Q	
-//	SendToThreadQ(&MsgRecv);
-	
-	//SOCKET Q MUST WAIT FOR A RESPONSE, ELSE GIVE ERROR
-	struct timespec tm;
-	clock_gettime(CLOCK_REALTIME, &tm);
-	tm.tv_sec += 1;
-	
-	if( 0 > mq_timedreceive(MQ, &MsgRecv, sizeof(MsgStruct), NULL, &tm) )
+	while(1)
 	{
 		
 	}
-	else
-	{
-		perror("!! ERROR in Socket Thread => mq_receive()");
-	}
 	
-	//WAIT FOR NEXT CLIENT CMD
 	
-
 	if(mq_unlink(SOCKET_QUEUE) != 0)
 	{
 		perror("!! ERROR in Socket Thread => mq_unlink()");
@@ -74,15 +80,6 @@ void SocketThread_Init()
 	char Text[60];
 	
 	sprintf(Text, "Socket Thread successfully created! TID: %ld", syscall(SYS_gettid));
-
-	MsgStruct InitMsg =
-	{
-		.Source = Socket,
-		.Dest = Logging,
-		.LogLevel = "INFO",
-	};
-		
-	strcpy(InitMsg.Msg, Text);
-		
-	SendToThreadQ(&InitMsg);
+	
+	SendToThreadQ(Socket, Logging, "INFO", Text);
 }

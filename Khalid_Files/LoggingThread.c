@@ -4,10 +4,12 @@
 #include <mqueue.h>
 #include <unistd.h>
 #include <sys/syscall.h>
+#include <errno.h>
 
 #include "LoggingThread.h"
 #include "Global_Defines.h"
 #include "My_Time.h"
+#include "POSIX_Qs.h"
 
 
 
@@ -34,7 +36,7 @@ void * LoggingThread(void * args)
 	MQ = mq_open(LOGGING_QUEUE, O_CREAT | O_RDONLY, 0666, &attr);
 	if(MQ == (mqd_t) -1)
 	{
-		perror("!! ERROR in Logging Thread => mq_open()");
+		Log_error(Logging, "mq_open()", errno, LOCAL_ONLY);
 	}
 		
 	MsgStruct MsgRecv;									//Temp variable used to store received messages
@@ -46,6 +48,7 @@ void * LoggingThread(void * args)
 		if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
 		{
 			perror("!! ERROR in Logging Thread => mq_receive()");
+	//		Log_error(Logging, "mq_open()", errno, LOCAL_ONLY);
 		}
 		/* If a msg is received, log it */
 		else
@@ -89,7 +92,7 @@ void LogFile_Init(char* LogFilePath)
 	char* Line4 = "*       *insert cool name here*       *\n";
 	char* Line5 = "*                                     *\n";
 	char* Line6 = "*  By: Khalid AlAwadhi | Poorn Mehta  *\n";
-	char* Line7 = "*                              v1.2   *\n";
+	char* Line7 = "*                              v1.3   *\n";
 	char* Line8 = "***************************************\n\n";
 
 	fprintf(MyFileP, Line1, GetCurrentTime(), syscall(SYS_gettid));

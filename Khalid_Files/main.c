@@ -2,6 +2,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 /* Our includes */
 #include "Global_Defines.h"
@@ -14,13 +15,23 @@
 
 /*
  * LAST WORKING ON:
- * MAKING TINED RECIVE WORK IN SOCKET PTHREAD. 
- * ALSO NEED TO WHILE(1) SOMEWHERE IN THE SOCKET PTHREAD
+ * GETTING MY NEW Log_error() TO REPLACE ALL PERROR CALLS AS IT IS NOT THREAD-SAFE. 
+ * LAST WORKING IN LooggingThread.c
  */
 
 /*########################################################################################
  #                                    TO-DO:                                             #
  #########################################################################################
+ *****************************************************************************************
+ * GENERAL                                                                               *
+ *****************************************************************************************
+ * 1- [] REPLACE ALL PERRORS WITH strerror_r() TO BE ABLE TO LOG IT VIA THE LOGGING
+ *       PTHREAD
+ * 
+ * 2- [COMPLETED] UPDATE SendToThreadQ() TO USE PARAMETERS INSTEAD OF STRUCT INPUT
+ * 
+ * 3- [] 
+ * 
  *****************************************************************************************
  * MAIN THREAD                                                                           *
  *****************************************************************************************
@@ -38,7 +49,7 @@
  * 
  * 6- [] IMPLEMENT SIGNAL HANDLER
  * 
- * 7- [] DISPLAY THREAD IDS AT START-UP 
+ * 7- [COMPLETED] DISPLAY THREAD IDS AT START-UP 
  * 
  * 8- [] KILL ONLY SPECIFIED THREADS
  * 
@@ -65,7 +76,7 @@
  * 
  * 8- [COMPLETED] LOG FILE PATH CONFIGURABLE AT RUN-TIME 
  * 
- * 9- [] START-UP LOGGING SUCCESS/FAIL REPORT
+ * 9- [COMPLETED] START-UP LOGGING SUCCESS/FAIL REPORT
  * 
  * 10- [COMPLETED] ADD LOG LEVEL TO STRUCT
  * 				L--> ADDED NEW ELEMENT TO OUR MSG STRUCT (STRING)
@@ -93,13 +104,17 @@
  *****************************************************************************************
  * TEMP THREAD                                                                           *
  *****************************************************************************************
- * 1- [] 
+ * 1- [COMPLETED] INIT THIS THREAD
+ * 
+ * 2- [] 
  * 
  * 
  *****************************************************************************************
  * LUX THREAD                                                                            *
  *****************************************************************************************
- * 1- [] 
+ * 1- [COMPLETED] INIT THIS THREAD
+ * 
+ * 2- [] 
  * 
  * 
  * 
@@ -175,13 +190,15 @@ int main(int argc, char *argv[])
 	/* Create Logging pThread */
 	if(pthread_create(&Log_pThread, NULL, &LoggingThread, (void *)&args) != 0)
 	{
-		perror("!! ERROR in Main Thread => pthread_create()");
+		Log_error(Main, "Logging pthread_create()", errno, LOCAL_ONLY);
 	}
 	else
 	{
 		printf("[%lf] SUCCESS: Created Logging Thread!\n\n", GetCurrentTime());
 	}
 	
+	/* Need to sleep a bit to make sure the Logging Thread starts up first */
+	sleep(1);
 	
 	
 	
@@ -193,16 +210,41 @@ int main(int argc, char *argv[])
 	/* Create Socket pThread */
 	if(pthread_create(&Socket_pThread, NULL, &SocketThread, NULL) != 0)
 	{
-		perror("!! ERROR in Main Thread => pthread_create()");
+		Log_error(Main, "Socket pthread_create()", errno, LOGGING_AND_LOCAL);
 	}
 	else
 	{
 		printf("[%lf] SUCCESS: Created Socket Thread!\n\n", GetCurrentTime());
 	}
 	
+	
+	/* Create Temp pThread */
+	if(pthread_create(&Temp_pThread, NULL, &TempThread, NULL) != 0)
+	{
+		Log_error(Main, "Temp pthread_create()", errno, LOGGING_AND_LOCAL);
+	}
+	else
+	{
+		printf("[%lf] SUCCESS: Created Temp Thread!\n\n", GetCurrentTime());
+	}
+	
+	
+	/* Create Lux pThread */
+	if(pthread_create(&Lux_pThread, NULL, &LuxThread, NULL) != 0)
+	{
+		Log_error(Main, "Lux pthread_create()", errno, LOGGING_AND_LOCAL);
+	}
+	else
+	{
+		printf("[%lf] SUCCESS: Created Lux Thread!\n\n", GetCurrentTime());
+	}
+	
+	
 	/* Wait for pThreads to finish */
 	pthread_join(Log_pThread, NULL);
-	pthread_join(Socket_pThread, NULL);	
+	pthread_join(Socket_pThread, NULL);
+	pthread_join(Temp_pThread, NULL);	
+	pthread_join(Lux_pThread, NULL);	
 	
 }
 
