@@ -24,7 +24,10 @@
 #include <math.h>
 #include <float.h>
 #include <complex.h>
-#include <time.h>       
+#include <time.h>
 #include <mqueue.h>
+
+//Path of I2C Bus
+#define I2C_BUS		(char *)"/dev/i2c-2"
 
 #endif
