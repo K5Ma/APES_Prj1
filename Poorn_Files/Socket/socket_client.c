@@ -129,6 +129,15 @@ int main(void)
 		return(0);
 	}
 
+	struct timeval tout;
+	tout.tv_sec = 2;
+	if (setsockopt(new_socket, SOL_SOCKET, SO_RCVTIMEO, 
+		                                  (const char *)&tout, sizeof(tout))) 
+	{ 
+		printf("setsockopt\n"); 
+		return(0); 
+	} 
+
 	client.sin_family = AF_INET;
 
 	custom_host = gethostbyname("localhost");
@@ -138,7 +147,7 @@ int main(void)
 		return(0);
 	}
 
-	if(inet_pton(AF_INET, "192.168.50.230", &client.sin_addr)<=0)  
+	if(inet_pton(AF_INET, "172.21.74.76", &client.sin_addr)<=0)  
 	{ 
 	printf("\nInvalid address/ Address not supported \n"); 
 	return -1; 
@@ -185,297 +194,24 @@ int main(void)
 		printf("\nSocket Reading Failed\n");
 		return(0);
 	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
+	else if(info_in == 0)	printf("NULL Read\n");
+	else
 	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED ON\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
+		printf("\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
+		fprintf(fptr,"\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
+		if(p2->num == 1)
+		{
+			fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED ON\n", current_time.tv_sec, current_time.tv_usec);
+			Command_LED(1);
+		}
+		else if(p2->num == 2)
+		{
+			fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED OFF\n", current_time.tv_sec, current_time.tv_usec);
+			Command_LED(0);
+		}
+		else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged\n", current_time.tv_sec, current_time.tv_usec);
 	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED OFF\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged\n", current_time.tv_sec, current_time.tv_usec);
 
-	// tx2, rx2
-	strcpy(p1->str, "C to S 2");
-	p1->num = 2;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Server *%s* and LED Command: Turn OFF", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(new_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-	gettimeofday(&current_time, NULL);
-	info_in = read(new_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED ON\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED OFF\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged\n", current_time.tv_sec, current_time.tv_usec);
-
-	// tx3, rx3
-	strcpy(p1->str, "C to S 3");
-	p1->num = 0;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Server *%s* and LED Command: No Change", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(new_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-	gettimeofday(&current_time, NULL);
-	info_in = read(new_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED ON\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED OFF\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged\n", current_time.tv_sec, current_time.tv_usec);
-
-	// tx4, rx4
-	strcpy(p1->str, "C to S 4");
-	p1->num = 2;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Server *%s* and LED Command: Turn OFF", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(new_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-	gettimeofday(&current_time, NULL);
-	info_in = read(new_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED ON\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED OFF\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged\n", current_time.tv_sec, current_time.tv_usec);
-
-	// tx5, rx5
-	strcpy(p1->str, "C to S 5");
-	p1->num = 1;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Server *%s* and LED Command: Turn ON", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(new_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-	gettimeofday(&current_time, NULL);
-	info_in = read(new_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED ON\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED OFF\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged\n", current_time.tv_sec, current_time.tv_usec);
-
-	// tx6, rx6
-	strcpy(p1->str, "C to S 6");
-	p1->num = 1;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Server *%s* and LED Command: Turn ON", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(new_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-	gettimeofday(&current_time, NULL);
-	info_in = read(new_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED ON\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED OFF\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged\n", current_time.tv_sec, current_time.tv_usec);
-
-	// tx7, rx7
-	strcpy(p1->str, "C to S 7");
-	p1->num = 0;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Server *%s* and LED Command: No Change", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(new_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-	gettimeofday(&current_time, NULL);
-	info_in = read(new_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED ON\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED OFF\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged\n", current_time.tv_sec, current_time.tv_usec);
-
-	// tx8, rx8
-	strcpy(p1->str, "C to S 8");
-	p1->num = 1;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Server *%s* and LED Command: Turn ON", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(new_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-	gettimeofday(&current_time, NULL);
-	info_in = read(new_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED ON\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED OFF\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged\n", current_time.tv_sec, current_time.tv_usec);
-
-	// tx9, rx9
-	strcpy(p1->str, "C to S 9");
-	p1->num = 0;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Server *%s* and LED Command: No Change", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(new_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-	gettimeofday(&current_time, NULL);
-	info_in = read(new_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED ON\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED OFF\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged\n", current_time.tv_sec, current_time.tv_usec);
-
-	// tx10, rx10
-	strcpy(p1->str, "C to S 10");
-	p1->num = 1;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Server *%s* and LED Command: Turn ON", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(new_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-	gettimeofday(&current_time, NULL);
-	info_in = read(new_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Server *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED ON\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Server: LED OFF\n", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged\n", current_time.tv_sec, current_time.tv_usec);
 
 	// Wait for termination signal
 //	while(flag == 0);

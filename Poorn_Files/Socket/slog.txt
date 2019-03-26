@@ -1,0 +1,8 @@
+
+
+Client Start with PID: 25356
+Time Stamp: *1553469991.402138*
+IPC using Socket
+No special resources being utilized
+
+<1553469991.402138> Sending to Server *C to S 1* and LED Command: Turn ON

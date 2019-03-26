@@ -144,8 +144,6 @@ int main(void)
 		return(0);
 	}
 
-	printf("\nSocket Creation done\n");
-
 	custom_server.sin_family = AF_INET;
 	custom_server.sin_addr.s_addr = INADDR_ANY;
 	custom_server.sin_port = htons(PORT);
@@ -157,24 +155,12 @@ int main(void)
 
 	}
 
-	printf("\nSocket Binding done\n");
-
 	if(listen(new_socket, 5) < 0)
 	{
 		printf("\nSocket Listening Failed\n");
 		return(0);
 	}
 
-	printf("\nSocket Listening done\n");
-
-	custom_socket = accept(new_socket, (struct sockaddr *)0, 0);
-	if(custom_socket < 0)
-	{
-		printf("\nSocket Accepting Failed\n");
-		return(0);
-	}
-
-	printf("\nSocket Accepting done\n");
 
 	// socket init complete, main process start
 	fptr = fopen("/usr/bin/slog.txt","w+");
@@ -184,6 +170,19 @@ int main(void)
 		return 0;
 	}
 	else	printf("file should have been created\n");
+
+	///////////////////////////////////////////////////////////////////
+//	uint8_t ic;
+//	for(ic = 0; ic < 3; ic ++){
+
+	custom_socket = accept(new_socket, (struct sockaddr *)0, 0);
+	if(custom_socket < 0)
+	{
+		printf("\nSocket Accepting Failed\n");
+		return(0);
+	}
+
+	printf("\nSocket Accepting done\n");
 
 	fprintf(fptr, "Server Start with PID: %d\n", getpid());
 	gettimeofday(&current_time, NULL);
@@ -215,291 +214,16 @@ int main(void)
 	p1->num = 0;
 	gettimeofday(&current_time, NULL);
 	fprintf(fptr,"\n<%lu.%06lu> Sending to Client *%s* and LED Command: No Change\n", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(custom_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
 
-	// rx2, tx2
-	gettimeofday(&current_time, NULL);
-	info_in = read(custom_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Client *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED ON", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED OFF", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged", current_time.tv_sec, current_time.tv_usec);
-	strcpy(p1->str, "S to C 2");
-	p1->num = 2;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Client *%s* and LED Command: Turn OFF\n", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(custom_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
 
-	// rx3, tx3
-	gettimeofday(&current_time, NULL);
-	info_in = read(custom_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Client *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED ON", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED OFF", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged", current_time.tv_sec, current_time.tv_usec);
-	strcpy(p1->str, "S to C 3");
-	p1->num = 1;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Client *%s* and LED Command: Turn ON\n", current_time.tv_sec, current_time.tv_usec, p1->str);
+	sleep(3);
     	info_out = write(custom_socket,p1,sizeof(info));
 	if (info_out < 0)
 	{
 		printf("\nSocket Writing Failed\n");
 		return(0);
 	}
-
-	// rx4, tx4
-	gettimeofday(&current_time, NULL);
-	info_in = read(custom_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Client *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED ON", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED OFF", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged", current_time.tv_sec, current_time.tv_usec);
-	strcpy(p1->str, "S to C 4");
-	p1->num = 0;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Client *%s* and LED Command: No Change\n", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(custom_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-
-	// rx5, tx5
-	gettimeofday(&current_time, NULL);
-	info_in = read(custom_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Client *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED ON", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED OFF", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged", current_time.tv_sec, current_time.tv_usec);
-	strcpy(p1->str, "S to C 5");
-	p1->num = 1;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Client *%s* and LED Command: Turn ON\n", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(custom_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-
-	// rx6, tx6
-	gettimeofday(&current_time, NULL);
-	info_in = read(custom_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Client *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED ON", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED OFF", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged", current_time.tv_sec, current_time.tv_usec);
-	strcpy(p1->str, "S to C 6");
-	p1->num = 0;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Client *%s* and LED Command: No Change\n", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(custom_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-
-	// rx7, tx7
-	gettimeofday(&current_time, NULL);
-	info_in = read(custom_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Client *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED ON", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED OFF", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged", current_time.tv_sec, current_time.tv_usec);
-	strcpy(p1->str, "S to C 7");
-	p1->num = 1;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Client *%s* and LED Command: Turn ON\n", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(custom_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-
-	// rx8, tx8
-	gettimeofday(&current_time, NULL);
-	info_in = read(custom_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Client *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED ON", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED OFF", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged", current_time.tv_sec, current_time.tv_usec);
-	strcpy(p1->str, "S to C 8");
-	p1->num = 1;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Client *%s* and LED Command: Turn ON\n", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(custom_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-
-	// rx9, tx9
-	gettimeofday(&current_time, NULL);
-	info_in = read(custom_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Client *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED ON", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED OFF", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged", current_time.tv_sec, current_time.tv_usec);
-	strcpy(p1->str, "S to C 9");
-	p1->num = 2;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Client *%s* and LED Command: Turn OFF\n", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(custom_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
-
-	// rx10, tx10
-	gettimeofday(&current_time, NULL);
-	info_in = read(custom_socket,p2,sizeof(info));
-	if(info_in < 0)
-	{
-		printf("\nSocket Reading Failed\n");
-		return(0);
-	}
-	fprintf(fptr,"\n<%lu.%06lu> String from Client *%s*", current_time.tv_sec, current_time.tv_usec, p2->str);
-	if(p2->num == 1)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED ON", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(1);
-	}
-	else if(p2->num == 2)
-	{
-		fprintf(fptr,"\n<%lu.%06lu> Command from Client: LED OFF", current_time.tv_sec, current_time.tv_usec);
-		Command_LED(0);
-	}
-	else	fprintf(fptr,"\n<%lu.%06lu> LED State Unchanged", current_time.tv_sec, current_time.tv_usec);
-	strcpy(p1->str, "S to C 10");
-	p1->num = 0;
-	gettimeofday(&current_time, NULL);
-	fprintf(fptr,"\n<%lu.%06lu> Sending to Client *%s* and LED Command: No Change\n", current_time.tv_sec, current_time.tv_usec, p1->str);
-    	info_out = write(custom_socket,p1,sizeof(info));
-	if (info_out < 0)
-	{
-		printf("\nSocket Writing Failed\n");
-		return(0);
-	}
+//	}////////////////////////////////////////////////////////////////
 
 	// Wait for termination signal
 //	while(flag == 0);
