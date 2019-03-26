@@ -50,7 +50,7 @@ void *LightThread_function(void *thread_input)
 		fprintf(fptr, "\nTask: To process an input text file and display number of characters repetitions less than 100\n");
 
 		pthread_mutex_lock(&lock);
-		if(light_init() == 0)	fprintf(fptr, "Light Sensor Initiliazed Successfully\n");
+		if(custom_lux_init() == 0)	fprintf(fptr, "Light Sensor Initiliazed Successfully\n");
 		else
 		{
 			fprintf(fptr, "Light Sensor Initialization Failed\n");
@@ -78,9 +78,10 @@ void *LightThread_function(void *thread_input)
 		{
 			// General message
 			gettimeofday(&current_time, 0);
+			float lux;
 
 			pthread_mutex_lock(&lock);
-			float lux = get_lux();
+			if(get_lux(&lux))		fprintf(fptr, "Lux Sensor Error\n");
 			pthread_mutex_unlock(&lock);
 
 			//Instead of this fprintf, send message using SendToThread to Logger
@@ -135,25 +136,17 @@ void *TempThread_function(void *thread_input)
 		fprintf(fptr, "\nTemperature Thread Identities\nLinux Thread ID: *%ld* POSIX Thread ID: *%lu*\n", syscall(SYS_gettid), pthread_self());
 
 		pthread_mutex_lock(&lock);
-		if(temp_init() == 0)	fprintf(fptr, "\nTemperature Sensor Initiliazed Successfully\n");
+		if(custom_temp_init() == 0)	fprintf(fptr, "\nTemperature Sensor Initiliazed Successfully\n");
 		else
 		{
 			fprintf(fptr, "\nTemperature Sensor Initialization Failed\n");
 			pthread_exit(0);
 		}
 
-		if (write_tlow_reg(0x03,0x5551) < 0)
-		{
-			printf("write failed\n");
-		}
-
-		if (read_tlow_reg(0x03) < 0)
-		{
-			printf("read failed\n");
-		}
+//			if(custom_set_temp_thresholds())	fprintf(fptr, "\nError while setting thresholds\n");
 
 			pthread_mutex_unlock(&lock);
-		}
+	}
 
 	// Handling failed attempt
 	else
@@ -162,7 +155,7 @@ void *TempThread_function(void *thread_input)
 		pthread_exit(0);
 	}
 
-	
+	float temp;
 
 	// Keep temperature thread running
 	while(1)
@@ -178,7 +171,7 @@ void *TempThread_function(void *thread_input)
 			gettimeofday(&current_time, 0);
 
 			pthread_mutex_lock(&lock);
-			float temp = read_temp_data_reg(0);
+			if(get_temp(&temp))		fprintf(fptr, "\nError while getting Temperature\n");
 			pthread_mutex_unlock(&lock);
 
 			fprintf(fptr, "\nTemperature at *%lu.%06lu* is >>%f<<\n", current_time.tv_sec, current_time.tv_usec, temp);
@@ -246,10 +239,10 @@ int main(int argc, char **argv)
 		// Handling failed attempt
 		else	printf("\nError opening log file for printing information about starting of main thread\n");
 
-		if (pthread_mutex_init(&lock, NULL) != 0) 
-		{ 
-			printf("\n mutex init has failed\n"); 
-			return -1; 
+		if (pthread_mutex_init(&lock, NULL) != 0)
+		{
+			printf("\n mutex init has failed\n");
+			return -1;
 		}
 
 		// Create and launch thread functions along with strcuture pointer as argument
@@ -305,4 +298,3 @@ int main(int argc, char **argv)
 	// Handling failed allocation
 	else	printf("\nMalloc Failed...Exiting\n");
 }
-
