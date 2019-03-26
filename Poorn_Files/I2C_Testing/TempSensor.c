@@ -32,9 +32,9 @@ uint8_t custom_temp_reg_write(uint8_t r_addr, uint16_t r_val)
 				perror("\nError in write_reg_ptr\n");
 				return 1;
 		}
-		if(write_reg(&r_arr))		// Writing to the actual register
+		if(temp_write_reg(&r_arr))		// Writing to the actual register
 		{
-				perror("\nError in write_reg_conf\n");
+				perror("\nError in temp_write_reg\n");
 				return 1;
 		}
 		return 0;
@@ -53,9 +53,9 @@ uint8_t custom_temp_reg_read(uint8_t r_addr, uint8_t *r_val)
 				perror("\nError in write_reg_ptr\n");
 				return 1;
 		}
-		if(read_reg(r_val))		// Reading the data, and storing in the pointer through macro
+		if(temp_read_reg(r_val))		// Reading the data, and storing in the pointer through macro
 		{
-				perror("\nError in write_reg_conf\n");
+				perror("\nError in temp_read_reg\n");
 				return 1;
 		}
 		return 0;
@@ -131,10 +131,10 @@ uint8_t custom_test_temp_config(void)
 		}
 		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
 		//Verifying default value
-		if(temp_config_return != Temp_Config_Default)
+		if((temp_config_return != Temp_Config_Default_1) && (temp_config_return != Temp_Config_Default_2))
 		{
 				perror("\nDefault Temp Config Check Failed\n");
-				printf("\nExpected: %x Got: %x\n",Temp_Config_Default , temp_config_return);
+				printf("\nGot: %x\n", temp_config_return);
 				return 1;
 		}
 		printf("\nDefault Temp Config Check Succeeded\n");
@@ -214,7 +214,7 @@ uint8_t custom_test_temp_config(void)
 				perror("\nFailed: custom_temp_reg_write\n");
 				return 1;
 		}
-		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1]
+		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
 		//Verifying Extended Mode Setup
 		if(Temp_Test_Extended_Set(temp_config_return))
 		{
@@ -319,7 +319,7 @@ int main(void)
 		if(custom_test_temp_config())	perror("\nError while testing config\n");
 		else		printf("\n>>>>>>>Temp Config Test Succeeded<<<<<<<\n");
 		//Resetting Config
-		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Config_Default))		perror("\nFailed: custom_temp_reg_write\n");
+		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Config_Default_1))		perror("\nFailed: custom_temp_reg_write\n");
 
 		float t2;
 		uint8_t t_warning;
