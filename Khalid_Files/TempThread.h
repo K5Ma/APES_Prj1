@@ -1,7 +1,7 @@
 /*
  * TempThread.h
  *
- *      Author: Khalid AlAwadhi
+ *      Author: Poorn Mehta
  *      Spring 2019
  */
 

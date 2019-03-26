@@ -28,7 +28,7 @@ void SendToThreadQ(uint8_t Src, uint8_t Dst, char* Log, char* Message);
 
 
 /**************************************************************************************************************
- * USAGE: This function will output UNIX errors alongside a message to either send them to the logging thread, 
+ * USAGE: This function will output UNIX errors alongside a message to either: send them to the logging thread, 
  *        or just output to stdout, or both. This was created using a thread-safe error retrieval function.
  *
  * PARAMETERS:

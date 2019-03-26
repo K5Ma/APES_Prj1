@@ -16,10 +16,10 @@
 
 /***************************************
  *  This define is used to indicate    *
- *  whether to print all logfiles to  *
+ *  whether to print all logfiles to   *
  *  stdout or not                      *
  ***************************************/
-#define DEBUG_PRINTF 1
+#define DEBUG_PRINTF 				1
 
 
 
@@ -62,11 +62,11 @@ typedef struct Pthread_ArgsStruct
 /***************************************
  *          POSIX Queues               *
  ***************************************/
-#define MAIN_QUEUE				"/MAIN_POSIX_Q"
-#define LOGGING_QUEUE			"/LOGGING_POSIX_Q"
-#define SOCKET_QUEUE			"/SOCKET_POSIX_Q"
-#define TEMP_QUEUE				"/TEMP_POSIX_Q"
-#define LUX_QUEUE				"/LUX_POSIX_Q"
+#define MAIN_QUEUE					"/MAIN_POSIX_Q"
+#define LOGGING_QUEUE				"/LOGGING_POSIX_Q"
+#define SOCKET_QUEUE				"/SOCKET_POSIX_Q"
+#define TEMP_QUEUE					"/TEMP_POSIX_Q"
+#define LUX_QUEUE					"/LUX_POSIX_Q"
 
 
 
@@ -74,10 +74,30 @@ typedef struct Pthread_ArgsStruct
  *  Log_error() Function Parameters:   *
  *        (found in POSIX_Qs.h)        *
  ***************************************/
-#define LOGGING_AND_LOCAL				0x01
-#define LOGGING_ONLY					0x02
-#define LOCAL_ONLY						0x03 
+#define LOGGING_AND_LOCAL			0x01
+#define LOGGING_ONLY				0x02
+#define LOCAL_ONLY					0x03 
  
- 
+
+
+/***************************************
+ *  Poorn Defines                      *
+ ***************************************/
+#define Temperature_Signal			0xF0
+#define Lux_Signal					0xF1
+
+#define Celsius						1
+#define Fahrenheit					2
+#define Kelvin						3
+
+#define PORT 						8080
+
+#define time_high 					0x02  //for 402ms
+#define time_med 					0x01  //for 101ms
+#define time_low 					0x00  //for 13ms
+
+#define gain 						0x10  //for maximum gain
+
+
 
 #endif /* GLOBAL_DEFINES_H_ */
