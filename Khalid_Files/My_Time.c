@@ -1,7 +1,6 @@
 #include "My_Time.h"
 #include <sys/time.h>
 #include <stdio.h>
-#include <math.h>
 
 
 double GetCurrentTime()

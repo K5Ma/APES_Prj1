@@ -1,6 +1,7 @@
 #include <mqueue.h>
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #include "POSIX_Qs.h"
 #include "Global_Defines.h"
@@ -52,25 +53,28 @@ void SendToThreadQ(uint8_t Src, uint8_t Dst, char* Log, char* Message)
 	}
 	
 	/* Open the chosen Thread POSIX queue - write only */
-	MQ = mq_open(DEST_Q_NAME, O_WRONLY);
+	MQ = mq_open(DEST_Q_NAME, O_WRONLY | O_CLOEXEC);
+	
+	char ErrMsg[250];								//Temp variable
 	
 	/* Error check */
 	if(MQ == (mqd_t) -1)
 	{
-		perror("!! ERROR in SendToThreadQ() => mq_open()");
-		printf("!! Attempted to open '%u' queue\n\n", Msg2Send.Dest);
+		sprintf(ErrMsg, "SendToThreadQ() => mq_open(), attempted to open '%u' queue, called by Thread '%u'", Msg2Send.Dest, Msg2Send.Source);
+		Log_error(0, ErrMsg, errno, LOCAL_ONLY);
 	}
 	
 	/* Send Msg to POSIX queue */
 	if(mq_send(MQ, &Msg2Send, sizeof(MsgStruct), 0) != 0)
 	{
-		perror("!! ERROR in SendToThreadQ() => mq_send()");
-		printf("!! Attempted to send message '%s' from '%u' to '%u'\n\n", Msg2Send.Msg, Msg2Send.Source, Msg2Send.Dest);
+		sprintf(ErrMsg, "SendToThreadQ() => mq_send(), attempted to send message '%s' from '%u' to '%u'", Msg2Send.Msg, Msg2Send.Source, Msg2Send.Dest);
+		Log_error(0, ErrMsg, errno, LOCAL_ONLY);
 	}
 	
 	if(mq_close(MQ) != 0)
 	{
-		perror("!! ERROR in SendToThreadQ() => mq_close()");
+		sprintf(ErrMsg, "SendToThreadQ() => mq_close(), attempted to close '%u' queue", Msg2Send.Source);
+		Log_error(0, ErrMsg, errno, LOCAL_ONLY);
 	}
 }
 

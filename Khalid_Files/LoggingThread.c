@@ -33,7 +33,7 @@ void * LoggingThread(void * args)
 	attr.mq_curmsgs = 0;								/* # of messages currently in queue */
 	
 	/* Create the Logging Thread queue to get messages from other pThreads */
-	MQ = mq_open(LOGGING_QUEUE, O_CREAT | O_RDONLY, 0666, &attr);
+	MQ = mq_open(LOGGING_QUEUE, O_CREAT | O_RDONLY | O_CLOEXEC, 0666, &attr);
 	if(MQ == (mqd_t) -1)
 	{
 		Log_error(Logging, "mq_open()", errno, LOCAL_ONLY);
@@ -47,8 +47,7 @@ void * LoggingThread(void * args)
 		/* Block until a msg is received */
 		if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
 		{
-			perror("!! ERROR in Logging Thread => mq_receive()");
-	//		Log_error(Logging, "mq_open()", errno, LOCAL_ONLY);
+			Log_error(Logging, "mq_receive()", errno, LOCAL_ONLY);
 		}
 		/* If a msg is received, log it */
 		else
@@ -59,7 +58,7 @@ void * LoggingThread(void * args)
 
 	if(mq_unlink(LOGGING_QUEUE) != 0)
 	{
-		perror("!! ERROR in Logging Thread => mq_unlink()");
+		Log_error(Logging, "mq_unlink()", errno, LOCAL_ONLY);
 	}
 	
 	printf("DEBUG: LOGGING PTHREAD HAS FINISHED AND WILL EXIT\n");
@@ -92,7 +91,7 @@ void LogFile_Init(char* LogFilePath)
 	char* Line4 = "*       *insert cool name here*       *\n";
 	char* Line5 = "*                                     *\n";
 	char* Line6 = "*  By: Khalid AlAwadhi | Poorn Mehta  *\n";
-	char* Line7 = "*                              v1.3   *\n";
+	char* Line7 = "*                              v1.4   *\n";
 	char* Line8 = "***************************************\n\n";
 
 	fprintf(MyFileP, Line1, GetCurrentTime(), syscall(SYS_gettid));
