@@ -308,6 +308,7 @@ uint8_t custom_temp_init(void)
 }
 
 // Main Function
+
 int main(void)
 {
 		if(custom_temp_init())		perror("\nError while Initializing Temperature Sensor\n");
