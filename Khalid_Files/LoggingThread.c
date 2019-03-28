@@ -71,7 +71,11 @@ void * LoggingThread(void * args)
 	/* If we reach this point, it means a KILL signal was passed (USR1 or USR2) and */
 	/* the other pThreads terminated successfully, we must now kill the Logging Thread */
 	printf("[%lf] Logging pThread(INFO): No other threads are alive - Killing Logging Thread\n\n", GetCurrentTime());
-
+	
+	pthread_mutex_lock(&lock);
+	AliveThreads &= ~LOGGING_ALIVE;
+	pthread_mutex_unlock(&lock);
+	
 	if(mq_unlink(LOGGING_QUEUE) != 0)
 	{
 		Log_error(Logging, "mq_unlink()", errno, LOCAL_ONLY);

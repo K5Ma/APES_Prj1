@@ -39,7 +39,9 @@ volatile uint8_t AliveThreads = 0x00;	//Used in Main and checked bitwise to see 
  * 
  * 2- [COMPLETED] UPDATE SendToThreadQ() TO USE PARAMETERS INSTEAD OF STRUCT INPUT
  * 
- * 3- [] 
+ * 3- [COMPLETED] FIX THREAD KILLING BUG
+ * 
+ * 4- []
  * 
  *****************************************************************************************
  * MAIN THREAD                                                                           *
@@ -63,7 +65,8 @@ volatile uint8_t AliveThreads = 0x00;	//Used in Main and checked bitwise to see 
  * 
  * 8- [SCRAPPED] KILL ONLY SPECIFIED THREADS
  * 
- * 9- [] 
+ * 9- []
+ * 
  * 
  *****************************************************************************************
  * LOGGING THREAD                                                                        *
@@ -151,6 +154,7 @@ void signal_function(int value)
 	}
 	else
 	{
+		if(kill_socket_init())        printf("\nSocket killing failed\n");
 		flag = value;
 	}
 }
@@ -299,159 +303,53 @@ int main(int argc, char *argv[])
 		/* Check Logging pThread */
 		if(CurrentAlive & LOGGING_ALIVE)
 		{
-			SendToThreadQ(Main, Logging, "INFO", "Logging pThread is alive");
+		//	SendToThreadQ(Main, Logging, "INFO", "Logging pThread is alive");
+			printf("[%lf] Main pThread(INFO): Logging pThread is alive\n\n", GetCurrentTime());
 		}
 		else
 		{
-			printf("[%lf] Main pThread(ERROR): Logging pThread is not alive\n\n", GetCurrentTime());
+			Log_error(Main, "Logging pThread is not alive", 42, LOCAL_ONLY);
 		}
 		
 		/* Check Socket pThread */
 		if(CurrentAlive & SOCKET_ALIVE)
 		{
-			SendToThreadQ(Main, Logging, "INFO", "Socket pThread is alive");
+			printf("[%lf] Main pThread(INFO): Socket pThread is alive\n\n", GetCurrentTime());
 		}
 		else
 		{
-			//SendToThreadQ(Main, Logging, "ERROR", "Socket pThread is not alive");
-			printf("[%lf] Main pThread(ERROR): Socket pThread is not alive\n\n", GetCurrentTime());
+			Log_error(Main, "Socket pThread is not alive", 42, LOCAL_ONLY);
 		}
-		
+			
 		/* Check Temp pThread */
 		if(CurrentAlive & TEMP_ALIVE)
 		{
-			SendToThreadQ(Main, Logging, "INFO", "Temp pThread is alive");
+			printf("[%lf] Main pThread(INFO): Temp pThread is alive\n\n", GetCurrentTime());
 		}
 		else
 		{
-			SendToThreadQ(Main, Logging, "ERROR", "Temp pThread is not alive");
-			printf("[%lf] Main pThread(ERROR): Temp pThread is not alive\n\n", GetCurrentTime());
+			Log_error(Main, "Temp pThread is not alive", 42, LOCAL_ONLY);
 		}
-		
-		
+			
 		/* Check Lux pThread */
 		if(CurrentAlive & LUX_ALIVE)
 		{
-			SendToThreadQ(Main, Logging, "INFO", "Lux pThread is alive");
+			printf("[%lf] Main pThread(INFO): Lux pThread is alive\n\n", GetCurrentTime());
 		}
 		else
 		{
-			SendToThreadQ(Main, Logging, "ERROR", "Lux pThread is not alive");
-			printf("[%lf] Main pThread(ERROR): Lux pThread is not alive\n\n", GetCurrentTime());
+			Log_error(Main, "Lux pThread is not alive", 42, LOCAL_ONLY);
 		}
 		
 		/* Check again after 10 secs */
 		sleep(10);
 	}
 	
-	printf("DEBUG: ALL MY THREADS ARE DEAD :(!\n\n");
+	printf("[%lf] Main pThread(INFO): All Threads were terminated. Exiting...\n\n", GetCurrentTime());
 	
-//	
-//	/* Wait for pThreads to finish */
-//	pthread_join(Log_pThread, NULL);
-//	pthread_join(Socket_pThread, NULL);
-//	pthread_join(Temp_pThread, NULL);	
-//	pthread_join(Lux_pThread, NULL);	
-	
+	/* Wait for pThreads to finish */
+	pthread_join(Log_pThread, NULL);
+	pthread_join(Socket_pThread, NULL);
+	pthread_join(Temp_pThread, NULL);	
+	pthread_join(Lux_pThread, NULL);	
 }
-
-//	/* While there is at least one thread alive: */
-//	while( AliveThreads != 0 )
-//	{
-//		/* Check if Logging Thread is alive */
-//		if(AliveThreads & LOGGING_ALIVE)
-//		{
-//			SendToThreadQ(Main, Logging, "INFO", "Are you alive?");
-//			
-//			/* Sleep for a bit */
-//			sleep(4); 
-//			
-//			/* Check for a response: 
-//			 * If a response is not received, that means the thread is not alive */
-//			if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
-//			{
-//				Log_error(Main, "Alive check 'Logging': mq_receive()", errno, LOCAL_ONLY);
-//				AliveThreads &= ~LOGGING_ALIVE;						//Since the pThread is not alive, stop checking for it
-//				printf("[%lf] Main pThread(ERROR): Logging pThread is not alive\n\n", GetCurrentTime());
-//			}
-//			else
-//			{
-//				/* Check the response, if its correct, log it */
-//				Main_AliveCheck_Resp(Logging, &MsgRecv);
-//			}
-//		}
-//		
-//		
-//		/* Check if Socket Thread is alive */
-//		if(AliveThreads & SOCKET_ALIVE)
-//		{
-//			SendToThreadQ(Main, Socket, "INFO", "Are you alive?");
-//			
-//			/* Sleep for a bit */
-//			sleep(1); 
-//			
-//			/* Check for a response: 
-//			 * If a response is not received, that means the thread is not alive */
-//			if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
-//			{
-//				Log_error(Main, "Alive check 'Socket': mq_receive()", errno, LOGGING_AND_LOCAL);
-//				AliveThreads &= ~SOCKET_ALIVE;						//Since the pThread is not alive, stop checking for it
-//				printf("[%lf] Main pThread(ERROR): Socket pThread is not alive\n\n", GetCurrentTime());
-//			}
-//			else
-//			{
-//				/* Check the response, if its correct, log it */
-//				Main_AliveCheck_Resp(Socket, &MsgRecv);
-//			}
-//		}
-//		
-//		/* Check if Temp Thread is alive */
-//		if(AliveThreads & TEMP_ALIVE)
-//		{
-//			SendToThreadQ(Main, Temp, "INFO", "Are you alive?");
-//			
-//			/* Sleep for a bit */
-//			sleep(1); 
-//			
-//			/* Check for a response: 
-//			 * If a response is not received, that means the thread is not alive */
-//			if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
-//			{
-//				Log_error(Main, "Alive check 'Temp': mq_receive()", errno, LOGGING_AND_LOCAL);
-//				AliveThreads &= ~TEMP_ALIVE;						//Since the pThread is not alive, stop checking for it
-//				printf("[%lf] Main pThread(ERROR): Temp pThread is not alive\n\n", GetCurrentTime());
-//			}
-//			else
-//			{
-//				/* Check the response, if its correct, log it */
-//				Main_AliveCheck_Resp(Temp, &MsgRecv);
-//			}
-//		}
-//		
-//		/* Check if Lux Thread is alive */
-//		if(AliveThreads & LUX_ALIVE)
-//		{
-//			SendToThreadQ(Main, Lux, "INFO", "Are you alive?");
-//			
-//			/* Sleep for a bit */
-//			sleep(1); 
-//			
-//			/* Check for a response: 
-//			 * If a response is not received, that means the thread is not alive */
-//			if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
-//			{
-//				Log_error(Main, "Alive check 'Lux': mq_receive()", errno, LOGGING_AND_LOCAL);
-//				AliveThreads &= ~LUX_ALIVE;						//Since the pThread is not alive, stop checking for it
-//				printf("[%lf] Main pThread(ERROR): Lux pThread is not alive\n\n", GetCurrentTime());
-//			}
-//			else
-//			{
-//				/* Check the response, if its correct, log it */
-//				Main_AliveCheck_Resp(Lux, &MsgRecv);
-//			}
-//		}
-//		
-//		/* Sleep for 5 secs as we don't need to check continuously */
-//		printf("DEBUG: DONE CHECKING, GOING TO SLEEP\n\n");
-//		sleep(5);
-//	}

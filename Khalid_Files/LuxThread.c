@@ -52,10 +52,45 @@ void * LuxThread(void * args)
 		AliveThreads |= LUX_ALIVE;
 		pthread_mutex_unlock(&lock);
 		
-		
 		// Wait for signal
-		while((flag == 0) || (flag == Temperature_Signal));
+	//	while((flag == 0) || (flag == Temperature_Signal));
+		/* Check for KILL signals */
+		if(flag == SIGUSR1 || flag == SIGUSR2)
+		{
+			SendToThreadQ(Lux, Logging, "INFO", "User Signal Passed - Killing Lux Thread");
 
+			if(mq_unlink(LUX_QUEUE) != 0)
+			{
+				Log_error(Lux, "mq_unlink()", errno, LOGGING_AND_LOCAL);
+			}
+			else
+			{
+				SendToThreadQ(Lux, Logging, "INFO", "Successfully unlinked Lux queue!");
+			}
+
+			char TempTxt[150];
+			if(flag == SIGUSR1)
+			{
+				sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
+				SendToThreadQ(Lux, Logging, "INFO", TempTxt);
+			}
+			else
+			{
+				sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
+				SendToThreadQ(Lux, Logging, "INFO", TempTxt);
+			}
+			
+			/* Decrement the LogKillSafe and clear the alive bit */
+			pthread_mutex_lock(&lock);
+			LogKillSafe--;
+			AliveThreads &= ~LUX_ALIVE;
+			pthread_mutex_unlock(&lock);
+			
+			SendToThreadQ(Lux, Logging, "INFO", "Lux Thread has terminated successfully and will now exit");
+			
+			return 0;
+		}
+		
 		// If timer interrupt has passed signal, log cpu usage
 		if(flag == Lux_Signal)
 		{
@@ -88,42 +123,6 @@ void * LuxThread(void * args)
 					SendToThreadQ(Lux, Logging, "ERROR", Lux_Text);
 				}
 			}
-		}
-		
-		/* Check for KILL signals */
-		else if(flag == SIGUSR1 || flag == SIGUSR2)
-		{
-			SendToThreadQ(Lux, Logging, "INFO", "User Signal Passed - Killing Lux Thread");
-
-			if(mq_unlink(LUX_QUEUE) != 0)
-			{
-				Log_error(Lux, "mq_unlink()", errno, LOGGING_AND_LOCAL);
-			}
-			else
-			{
-				SendToThreadQ(Lux, Logging, "INFO", "Successfully unlinked Lux queue!");
-			}
-
-			char TempTxt[150];
-			if(flag == SIGUSR1)
-			{
-				sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
-				SendToThreadQ(Lux, Logging, "INFO", TempTxt);
-			}
-			else
-			{
-				sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
-				SendToThreadQ(Lux, Logging, "INFO", TempTxt);
-			}
-			
-			/* Decrement the LogKillSafe Global Variable */
-			pthread_mutex_lock(&lock);
-			LogKillSafe--; 
-			pthread_mutex_unlock(&lock);
-			
-			SendToThreadQ(Lux, Logging, "INFO", "Lux Thread has terminated successfully and will now exit");
-			
-			return 0;
 		}
 	}
 }

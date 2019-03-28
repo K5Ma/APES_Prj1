@@ -35,4 +35,7 @@ void * SocketThread(void * args);
 void SocketThread_Init();
 
 
+uint8_t kill_socket_init(void);
+
+
 #endif /* SOCKETTHREAD_H_ */

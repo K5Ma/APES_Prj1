@@ -54,7 +54,44 @@ void * TempThread(void * args)
 		pthread_mutex_unlock(&lock);
 			
 		// Wait for signal
-		while((flag == 0) || (flag == Lux_Signal));
+	//	while((flag == 0) || (flag == Lux_Signal));
+		/* Check for KILL signals */
+		if(flag == SIGUSR1 || flag == SIGUSR2)
+		{
+			SendToThreadQ(Temp, Logging, "INFO", "User Signal Passed - Killing Temperature Thread");
+
+			if(mq_unlink(TEMP_QUEUE) != 0)
+			{
+				Log_error(Temp, "mq_unlink()", errno, LOGGING_AND_LOCAL);
+			}
+			else
+			{
+				SendToThreadQ(Temp, Logging, "INFO", "Successfully unlinked Temp queue!");
+			}
+
+			char TempTxt[150];
+			if(flag == SIGUSR1)
+			{
+				sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
+				SendToThreadQ(Temp, Logging, "INFO", TempTxt);
+			}
+			else
+			{
+				sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
+				SendToThreadQ(Temp, Logging, "INFO", TempTxt);
+			}
+			
+			/* Decrement the LogKillSafe and clear the alive bit */
+			pthread_mutex_lock(&lock);
+			LogKillSafe--;
+			AliveThreads &= ~TEMP_ALIVE;
+			pthread_mutex_unlock(&lock);
+			
+			SendToThreadQ(Temp, Logging, "INFO", "Temp Thread has terminated successfully and will now exit");
+			
+			
+			return 0;
+		}
 		
 		if(flag == Temperature_Signal)
 		{
@@ -113,43 +150,6 @@ void * TempThread(void * args)
 				sprintf(Temperature_Text, ">>>>>>>>> Expected:%d Got:%d <<<<<<<<<<<", sizeof(MsgStruct), resp);
 				SendToThreadQ(Temp, Logging, "ERROR", Temperature_Text);
 			}
-		}
-		
-		
-		/* Check for KILL signals */
-		else if(flag == SIGUSR1 || flag == SIGUSR2)
-		{
-			SendToThreadQ(Temp, Logging, "INFO", "User Signal Passed - Killing Temperature Thread");
-
-			if(mq_unlink(TEMP_QUEUE) != 0)
-			{
-				Log_error(Temp, "mq_unlink()", errno, LOGGING_AND_LOCAL);
-			}
-			else
-			{
-				SendToThreadQ(Temp, Logging, "INFO", "Successfully unlinked Temp queue!");
-			}
-
-			char TempTxt[150];
-			if(flag == SIGUSR1)
-			{
-				sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
-				SendToThreadQ(Temp, Logging, "INFO", TempTxt);
-			}
-			else
-			{
-				sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
-				SendToThreadQ(Temp, Logging, "INFO", TempTxt);
-			}
-			
-			/* Decrement the LogKillSafe Global Variable */
-			pthread_mutex_lock(&lock);
-			LogKillSafe--; 
-			pthread_mutex_unlock(&lock);
-			
-			SendToThreadQ(Temp, Logging, "INFO", "Temp Thread has terminated successfully and will now exit");
-			
-			return 0;
 		}
 	}
 }
