@@ -58,10 +58,10 @@
 #define Lux_Test_Intrp_Ctrl_Data(x)		(x & Lux_Interrupt_Control_Mask) == Lux_Interrupt_Test_Data ? 0 : 1
 
 // Defines and macros for interrupt threshold registers manipulation
-#define Lux_ThrLow_Low_Test_Data			0xA5
-#define Lux_ThrLow_High_Test_Data			0x5A
+#define Lux_ThrLow_Low_Test_Data			0x05	//0xA5
+#define Lux_ThrLow_High_Test_Data			0x0A	//0x5A
 #define Lux_ThrHigh_Low_Test_Data			0x0F
-#define Lux_ThrHigh_High_Test_Data		0xF0
+#define Lux_ThrHigh_High_Test_Data			0xF0
 #define Lux_Test_ThrLow_Low(x)				x == Lux_ThrLow_Low_Test_Data ? 0 : 1
 #define Lux_Test_ThrLow_High(x)				x == Lux_ThrLow_High_Test_Data ? 0 : 1
 #define Lux_Test_ThrHigh_Low(x)				x == Lux_ThrHigh_Low_Test_Data ? 0 : 1

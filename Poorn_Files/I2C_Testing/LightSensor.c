@@ -170,9 +170,9 @@ uint8_t custom_test_lux_config(void)
 				return 1;
 		}
 		// Verifying TLow
-		if((Lux_Test_ThrLow_Low(lux_data_write[0]) == Lux_ThrLow_Low_Test_Data) || (Lux_Test_ThrLow_High(lux_data_write[1]) == Lux_ThrLow_High_Test_Data))
+		if((Lux_Test_ThrLow_Low(lux_data_write[0])) || (Lux_Test_ThrLow_High(lux_data_write[1])))
 		{
-				printf("\nLux Interrupt Threshold TLow Test failed\n");
+				printf("\nLux Interrupt Threshold TLow Test failed with %x %x\n", lux_data_write[0], lux_data_write[1]);
 				return 1;
 		}
 		printf("\nLux Interrupt Threshold TLow Test Completed Successfully\n");
@@ -204,7 +204,7 @@ uint8_t custom_test_lux_config(void)
 				return 1;
 		}
 		// Verifying THigh
-		if((Lux_Test_ThrHigh_Low(lux_data_write[0]) == Lux_ThrHigh_Low_Test_Data) || (Lux_Test_ThrHigh_High(lux_data_write[1]) == Lux_ThrHigh_High_Test_Data))
+		if((Lux_Test_ThrHigh_Low(lux_data_write[0])) || (Lux_Test_ThrHigh_High(lux_data_write[1])))
 		{
 				printf("\nLux Interrupt Threshold THigh Test failed\n");
 				return 1;
