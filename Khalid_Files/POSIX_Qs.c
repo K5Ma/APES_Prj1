@@ -5,6 +5,7 @@
 
 #include "POSIX_Qs.h"
 #include "Global_Defines.h"
+#include "My_Time.h"
 
 
 void SendToThreadQ(uint8_t Src, uint8_t Dst, char* Log, char* Message)
@@ -127,12 +128,72 @@ void Log_error(uint8_t Src, char* Err_Msg, int errnum, uint8_t SendToLogging)
 			break;
 
 		case LOGGING_AND_LOCAL:
-			printf("Error in Thread '%s' => %s\n\n", Source_text, Error_Log);
+			printf("[%lf] Error in Thread '%s' => %s\n\n", GetCurrentTime(), Source_text, Error_Log);
 			SendToThreadQ(Src, Logging, "ERROR", Error_Log);
 			break;
 			
 		default:
-			printf("Error in Thread '%s' => %s\n\n", Source_text, Error_Log);
+			printf("[%lf] Error in Thread '%s' => %s\n\n", GetCurrentTime(), Source_text, Error_Log);
 			break;
 	}
+}
+
+
+
+bool Main_AliveCheck(uint8_t Chosen_Dest, MsgStruct* Msg2Check)
+{
+	if( (Msg2Check->Source == Main) && (Msg2Check->Dest == Chosen_Dest) && (strcmp("Are you alive?", Msg2Check->Msg) == 0) )
+	{
+		SendToThreadQ(Msg2Check->Dest, Main, "INFO", "Yes, I am alive");
+		return true; 
+	}
+	return false;
+}
+
+
+bool Main_AliveCheck_Resp(uint8_t Chosen_Dest, MsgStruct* Msg2Check)
+{
+	/* Get name of source */
+	char* Source_text; 
+	switch(Chosen_Dest)
+	{
+		case Main:
+			Source_text = "Main Thread";
+			break;
+
+		case Logging:
+			Source_text = "Logging Thread";
+			break;
+
+		case Socket:
+			Source_text = "Socket Thread";
+			break;
+
+		case Temp:
+			Source_text = "Temp Thread";
+			break;
+
+		case Lux:
+			Source_text = "Lux Thread";
+			break;
+
+		default:
+			Source_text = "Unknown Thread";
+			break;
+	}
+		
+	char TempTxt[150];
+	if( (Msg2Check->Source == Chosen_Dest) && (strcmp("Yes, I am alive", Msg2Check->Msg) == 0) )
+	{
+		sprintf(TempTxt, "Received response from '%s': %s", Source_text, Msg2Check->Msg);
+		SendToThreadQ(Main, Logging, "INFO", TempTxt);
+		return true;
+	}
+	else
+	{
+		sprintf(TempTxt, "Expected response from '%s' but got from '%u'???", Source_text, Msg2Check->Source);
+		SendToThreadQ(Main, Logging, "INFO", TempTxt);
+		return false;
+	}
+
 }

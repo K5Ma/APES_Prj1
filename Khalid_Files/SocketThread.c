@@ -6,8 +6,8 @@
 #include <time.h>
 #include <errno.h>
 #include <signal.h>
-#include <pthread.h>
 #include <netinet/in.h>
+#include <pthread.h>
 
 #include "SocketThread.h"
 #include "Global_Defines.h"
@@ -29,7 +29,9 @@ int new_socket, custom_socket, cust_sock, info_in, info_out;
 char loglevel_sock[30], loglevel_q[30];
 
 extern sig_atomic_t flag;
-
+extern pthread_mutex_t lock;
+extern uint8_t LogKillSafe;
+extern uint8_t AliveThreads;
 
 
 void * SocketThread(void * args)
@@ -61,6 +63,11 @@ void * SocketThread(void * args)
 		// Wait for signal
 		while((flag != SIGUSR1) && (flag != SIGUSR2))
 		{
+			/* Set alive bit */
+			pthread_mutex_lock(&lock);
+			AliveThreads |= SOCKET_ALIVE;
+			pthread_mutex_unlock(&lock);
+			
 			custom_socket = accept(new_socket, (struct sockaddr *)0, 0);
 			
 			if(custom_socket < 0)
@@ -151,8 +158,6 @@ void * SocketThread(void * args)
 				p1->num = p2->num;
 				SendToThreadQ(Socket, Logging, loglevel_sock, Socket_Text);
 			}
-			
-			
 
 			// Have to do this since custom_socket is getting corrupted
 			custom_socket = cust_sock;
@@ -169,42 +174,39 @@ void * SocketThread(void * args)
 			}
 		}
 		
-		// Notifying use	r
-		//printf("User Signal Passed - Killing Socket Thread\n");
 		SendToThreadQ(Socket, Logging, "INFO", "User Signal Passed - Killing Socket Thread");
 
 		if(mq_unlink(SOCKET_QUEUE) != 0)
 		{
 				Log_error(Socket, "mq_unlink()", errno, LOGGING_AND_LOCAL);
 		}
-
-		//printf("\n--->>> Socket Thread Exited<<<---\n");
-		SendToThreadQ(Socket, Logging, "INFO", "--->>> Socket Thread Exited<<<---");
+		else
+		{
+			SendToThreadQ(Socket, Logging, "INFO", "Successfully unlinked Socket queue!");
+		}
 		
 		char TempTxt[150];
-		
 		if(flag == SIGUSR1)
 		{
 			sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
-		//	printf("Exit Reason: User Signal 1 Received (%d)\n", flag);
 			SendToThreadQ(Socket, Logging, "INFO", TempTxt);
 		}
 		else
 		{
 			sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
-		//	printf("Exit Reason: User Signal 2 Received (%d)\n", flag);
 			SendToThreadQ(Socket, Logging, "INFO", TempTxt);
 		}
 		flag = 1;
 		
-		// Immediately terminate the thread (unlike pthread_cancel)
-		pthread_exit(0);
-
-		// Break the infinite loop
-		break;
+		/* Decrement the LogKillSafe Global Variable */
+		pthread_mutex_lock(&lock);
+		LogKillSafe--; 
+		pthread_mutex_unlock(&lock);
+			
+		SendToThreadQ(Socket, Logging, "INFO", "Socket Thread has terminated successfully and will now exit");
+			
+		return 0;
 	}
-	
-	printf("DEBUG: SOCKET PTHREAD HAS FINISHED AND WILL EXIT\n");
 }
 
 

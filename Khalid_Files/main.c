@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <signal.h>
+#include <mqueue.h>
 
 /* Our includes */
 #include "Global_Defines.h"
@@ -16,14 +17,14 @@
 
 
 /* Global Variables */
-pthread_mutex_t lock;				//Used to lock and unlock critical sections in code
-sig_atomic_t flag = 0;				//This will indicate whether any valid user signal has been received or not
-uint8_t sig_sync = 0;				//Used to toggle in signal_function()
-
+pthread_mutex_t lock;					//Used to lock and unlock critical sections in code
+volatile sig_atomic_t flag = 0;			//This will indicate whether any valid user signal has been received or not
+uint8_t sig_sync = 0;					//Used to toggle in signal_function()
+volatile uint8_t LogKillSafe = 3;		//Used when other threads are killed. They decrement this value which assures Logging pThread is killed last. 
+volatile uint8_t AliveThreads = 0x00;	//Used in Main and checked bitwise to see which pThreads are alive
 
 /*
  * LAST WORKING ON:
- * 
  */
 
 /*########################################################################################
@@ -45,9 +46,10 @@ uint8_t sig_sync = 0;				//Used to toggle in signal_function()
  *****************************************************************************************
  * 1- [COMPLETED] FIX BUG OF GETTING USER LOG FILE PATH
  * 
- * 2- [] IMPLEMENT METHOD TO CHECK CHILD THREADS ARE ALIVE AT SOME INTERVAL
+ * 2- [COMPLETED] IMPLEMENT METHOD TO CHECK CHILD THREADS ARE ALIVE AT SOME INTERVAL
+ * 				L--> USED AliveThreads GLOBAL VARIABLE (CODE IN MAIN) 
  * 
- * 3- [] IMPLEMENT METHOD TO CLEANLY EXIT WHEN REQUESTED (MAKE CHILD EXITS PROPERLY
+ * 3- [COMPLETED] IMPLEMENT METHOD TO CLEANLY EXIT WHEN REQUESTED (MAKE CHILD EXITS PROPERLY
  * 		 THEN MAIN)
  * 
  * 4- [] LOG ERROR INFORMATION AND INDICATE ERROR WITH BB USR LEDS (EG. MISSING SENSOR)
@@ -55,11 +57,11 @@ uint8_t sig_sync = 0;				//Used to toggle in signal_function()
  * 5- [COMPLETED] CREATE MY OWN TIME GET FUNCTION
  * 				L--> FOUND IN My_Time .h/.c
  * 
- * 6- [] IMPLEMENT SIGNAL HANDLER
+ * 6- [COMPLETED] IMPLEMENT SIGNAL HANDLER
  * 
  * 7- [COMPLETED] DISPLAY THREAD IDS AT START-UP 
  * 
- * 8- [] KILL ONLY SPECIFIED THREADS
+ * 8- [SCRAPPED] KILL ONLY SPECIFIED THREADS
  * 
  * 9- [] 
  * 
@@ -96,9 +98,7 @@ uint8_t sig_sync = 0;				//Used to toggle in signal_function()
  * 
  * 13- [COMPLETED] HANDLE INITS OF OTHER THREAD TO LOGGING THREAD
  * 
- * 14- [] IMPLEMENT SIGNAL KILL 
- * 
- * 15- []
+ * 14- [] 
  * 
  * 
  *****************************************************************************************
@@ -130,41 +130,7 @@ uint8_t sig_sync = 0;				//Used to toggle in signal_function()
  * 
  * 3- [] 
  * 
- *****************************************************************************************
- * UNSURE????                                                                            *
- *****************************************************************************************
-A simple set of messages should be implemented. At a minimum, the set should support the
-following:
- * Heartbeat notification from all threads to the main task: Either as a request-response 
-from Main task to individual tasks as a “ping”, or a periodic message from each task 
-to the Main task with Main monitoring (in some manner) the presence/absence of the report.
- 
- * Startup tests Initialization Complete Notifications (Success/Failure) from each task
-
- * Error Message reporting
-
- * Sensor Tasks’ Data Requests (temperature/light)
-
- * Log Messages
-
- * Requests to close threads from main to other tasks
-
-BIST: 
-Before you have your application begin steady state operation monitoring temperature,
-light, and logging errors, tasks should have some tests run at startup to verify that
-hardware and software is in working order. These tests should include:
- * Communication with the Temperature sensor that you can confirm that I2C works and that 
-the hardware is functioning
- 
- * Communication with the Light sensor that you can confirm that I2C works and that the 
-hardware is functioning
- 
- * Communication to the threads to make sure they have all started and up and running.
- 
- * Log messages should be sent to the logger task when individual BIST tests have 
-finished along with an indicator if the hardware is connected and in working order. 
-If something does not startup correctly, an error code should be logged and the USR Led turned on.
-
+ * 
 #########################################################################################*/
 
 
@@ -259,9 +225,8 @@ int main(int argc, char *argv[])
 	
 	/* Setting up Signals */
 	sig_setup();
-
-
-
+	
+	
 	/* Create the needed pThreads */
 	pthread_t Log_pThread, Socket_pThread, Temp_pThread, Lux_pThread;
 	
@@ -277,12 +242,11 @@ int main(int argc, char *argv[])
 	}
 	
 	/* Need to sleep a bit to make sure the Logging Thread starts up first */
-	sleep(1);
+	sleep(2);
 	
 	
 	
 	//BIST SHOULD BE HERE
-	
 	
 	
 	
@@ -295,7 +259,6 @@ int main(int argc, char *argv[])
 	{
 		printf("[%lf] Main pThread SUCCESS: Created Socket Thread!\n\n", GetCurrentTime());
 	}
-	
 	
 	/* Create Temp pThread */
 	if(pthread_create(&Temp_pThread, NULL, &TempThread, NULL) != 0)
@@ -318,11 +281,177 @@ int main(int argc, char *argv[])
 		printf("[%lf] Main pThread SUCCESS: Created Lux Thread!\n\n", GetCurrentTime());
 	}
 	
+	/* Let other pThreads execute before checking */
+	sleep(2);
 	
-	/* Wait for pThreads to finish */
-	pthread_join(Log_pThread, NULL);
-	pthread_join(Socket_pThread, NULL);
-	pthread_join(Temp_pThread, NULL);	
-	pthread_join(Lux_pThread, NULL);	
+	/* While there is at least one thread alive: */
+	while( AliveThreads != 0 )
+	{
+		/* Create a copy of the global variable, AliveThreads, and store it in the local variable CurrentAlive. 
+		 * This is done as to not halt the other pThreads trying to use AliveThreads. It is faster to update
+		 * local variable and do work rather than halt all threads until the alive check is done. */
+		pthread_mutex_lock(&lock);
+		uint8_t CurrentAlive = AliveThreads;		//Create a copy of the global variable 
+		AliveThreads = 0;							//Reset alive bits
+		pthread_mutex_unlock(&lock);
+		
+		
+		/* Check Logging pThread */
+		if(CurrentAlive & LOGGING_ALIVE)
+		{
+			SendToThreadQ(Main, Logging, "INFO", "Logging pThread is alive");
+		}
+		else
+		{
+			printf("[%lf] Main pThread(ERROR): Logging pThread is not alive\n\n", GetCurrentTime());
+		}
+		
+		/* Check Socket pThread */
+		if(CurrentAlive & SOCKET_ALIVE)
+		{
+			SendToThreadQ(Main, Logging, "INFO", "Socket pThread is alive");
+		}
+		else
+		{
+			//SendToThreadQ(Main, Logging, "ERROR", "Socket pThread is not alive");
+			printf("[%lf] Main pThread(ERROR): Socket pThread is not alive\n\n", GetCurrentTime());
+		}
+		
+		/* Check Temp pThread */
+		if(CurrentAlive & TEMP_ALIVE)
+		{
+			SendToThreadQ(Main, Logging, "INFO", "Temp pThread is alive");
+		}
+		else
+		{
+			SendToThreadQ(Main, Logging, "ERROR", "Temp pThread is not alive");
+			printf("[%lf] Main pThread(ERROR): Temp pThread is not alive\n\n", GetCurrentTime());
+		}
+		
+		
+		/* Check Lux pThread */
+		if(CurrentAlive & LUX_ALIVE)
+		{
+			SendToThreadQ(Main, Logging, "INFO", "Lux pThread is alive");
+		}
+		else
+		{
+			SendToThreadQ(Main, Logging, "ERROR", "Lux pThread is not alive");
+			printf("[%lf] Main pThread(ERROR): Lux pThread is not alive\n\n", GetCurrentTime());
+		}
+		
+		/* Check again after 10 secs */
+		sleep(10);
+	}
+	
+	printf("DEBUG: ALL MY THREADS ARE DEAD :(!\n\n");
+	
+//	
+//	/* Wait for pThreads to finish */
+//	pthread_join(Log_pThread, NULL);
+//	pthread_join(Socket_pThread, NULL);
+//	pthread_join(Temp_pThread, NULL);	
+//	pthread_join(Lux_pThread, NULL);	
 	
 }
+
+//	/* While there is at least one thread alive: */
+//	while( AliveThreads != 0 )
+//	{
+//		/* Check if Logging Thread is alive */
+//		if(AliveThreads & LOGGING_ALIVE)
+//		{
+//			SendToThreadQ(Main, Logging, "INFO", "Are you alive?");
+//			
+//			/* Sleep for a bit */
+//			sleep(4); 
+//			
+//			/* Check for a response: 
+//			 * If a response is not received, that means the thread is not alive */
+//			if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
+//			{
+//				Log_error(Main, "Alive check 'Logging': mq_receive()", errno, LOCAL_ONLY);
+//				AliveThreads &= ~LOGGING_ALIVE;						//Since the pThread is not alive, stop checking for it
+//				printf("[%lf] Main pThread(ERROR): Logging pThread is not alive\n\n", GetCurrentTime());
+//			}
+//			else
+//			{
+//				/* Check the response, if its correct, log it */
+//				Main_AliveCheck_Resp(Logging, &MsgRecv);
+//			}
+//		}
+//		
+//		
+//		/* Check if Socket Thread is alive */
+//		if(AliveThreads & SOCKET_ALIVE)
+//		{
+//			SendToThreadQ(Main, Socket, "INFO", "Are you alive?");
+//			
+//			/* Sleep for a bit */
+//			sleep(1); 
+//			
+//			/* Check for a response: 
+//			 * If a response is not received, that means the thread is not alive */
+//			if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
+//			{
+//				Log_error(Main, "Alive check 'Socket': mq_receive()", errno, LOGGING_AND_LOCAL);
+//				AliveThreads &= ~SOCKET_ALIVE;						//Since the pThread is not alive, stop checking for it
+//				printf("[%lf] Main pThread(ERROR): Socket pThread is not alive\n\n", GetCurrentTime());
+//			}
+//			else
+//			{
+//				/* Check the response, if its correct, log it */
+//				Main_AliveCheck_Resp(Socket, &MsgRecv);
+//			}
+//		}
+//		
+//		/* Check if Temp Thread is alive */
+//		if(AliveThreads & TEMP_ALIVE)
+//		{
+//			SendToThreadQ(Main, Temp, "INFO", "Are you alive?");
+//			
+//			/* Sleep for a bit */
+//			sleep(1); 
+//			
+//			/* Check for a response: 
+//			 * If a response is not received, that means the thread is not alive */
+//			if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
+//			{
+//				Log_error(Main, "Alive check 'Temp': mq_receive()", errno, LOGGING_AND_LOCAL);
+//				AliveThreads &= ~TEMP_ALIVE;						//Since the pThread is not alive, stop checking for it
+//				printf("[%lf] Main pThread(ERROR): Temp pThread is not alive\n\n", GetCurrentTime());
+//			}
+//			else
+//			{
+//				/* Check the response, if its correct, log it */
+//				Main_AliveCheck_Resp(Temp, &MsgRecv);
+//			}
+//		}
+//		
+//		/* Check if Lux Thread is alive */
+//		if(AliveThreads & LUX_ALIVE)
+//		{
+//			SendToThreadQ(Main, Lux, "INFO", "Are you alive?");
+//			
+//			/* Sleep for a bit */
+//			sleep(1); 
+//			
+//			/* Check for a response: 
+//			 * If a response is not received, that means the thread is not alive */
+//			if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
+//			{
+//				Log_error(Main, "Alive check 'Lux': mq_receive()", errno, LOGGING_AND_LOCAL);
+//				AliveThreads &= ~LUX_ALIVE;						//Since the pThread is not alive, stop checking for it
+//				printf("[%lf] Main pThread(ERROR): Lux pThread is not alive\n\n", GetCurrentTime());
+//			}
+//			else
+//			{
+//				/* Check the response, if its correct, log it */
+//				Main_AliveCheck_Resp(Lux, &MsgRecv);
+//			}
+//		}
+//		
+//		/* Sleep for 5 secs as we don't need to check continuously */
+//		printf("DEBUG: DONE CHECKING, GOING TO SLEEP\n\n");
+//		sleep(5);
+//	}
