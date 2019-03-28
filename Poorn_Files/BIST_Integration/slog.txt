@@ -1,0 +1,10 @@
+
+
+Client Start with PID: 15371
+Time Stamp: *1553728934.674254*
+IPC using Socket
+No special resources being utilized
+
+<1553728934.674255> Sending to Server *Lux* and Unit: 1
+<1553728934.674295> String from Server *Lux is *1652.308716**
+<1553728934.674295> Temp is in C
