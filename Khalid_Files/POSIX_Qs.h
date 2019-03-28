@@ -52,4 +52,38 @@ void SendToThreadQ(uint8_t Src, uint8_t Dst, char* Log, char* Message);
 void Log_error(uint8_t Src, char* Err_Msg, int errnum, uint8_t Mode);
 
 
+
+/**************************************************************************************************************
+ * [Deprecated]
+ * 
+ * USAGE: This function is used in Pthreads to check if an alive check message was sent from Main pThread.
+ *
+ * PARAMETERS:
+ *            - uint8_t Chosen_Dest => The pThread Main sent a message to
+ *            - MsgStruct* Msg2Check => The message received by the pThread to check. 
+ *
+ * RETURNS: TRUE => Message was an alive check from Main
+ *          FALSE => Message was NOT an alive check from Main
+ *
+ **************************************************************************************************************/
+bool Main_AliveCheck(uint8_t Chosen_Dest, MsgStruct* Msg2Check);
+
+
+
+/**************************************************************************************************************
+ * [Deprecated]
+ * 
+ * USAGE: This function is used in Main pThread to check if a response received is the correct response or not. 
+ *
+ * PARAMETERS:
+ *            - uint8_t Chosen_Dest => The pThread Main sent a message to
+ *            - MsgStruct* Msg2Check => The message received by the pThread to check. 
+ *
+ * RETURNS: TRUE => Chosen pThread got the message and is alive
+ *          FALSE => Chosen pThread did not respond to the Main alive check message 
+ *
+ **************************************************************************************************************/
+bool Main_AliveCheck_Resp(uint8_t Chosen_Dest, MsgStruct* Msg2Check);
+
+
 #endif /* POSIX_QS_H_ */

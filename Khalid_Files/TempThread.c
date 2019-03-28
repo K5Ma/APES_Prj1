@@ -14,6 +14,8 @@
 
 extern pthread_mutex_t lock;
 extern sig_atomic_t flag;
+extern uint8_t LogKillSafe;
+extern uint8_t AliveThreads;
 
 void * TempThread(void * args)
 {
@@ -46,6 +48,11 @@ void * TempThread(void * args)
 	
 	while(1)
 	{
+		/* Set alive bit */
+		pthread_mutex_lock(&lock);
+		AliveThreads |= TEMP_ALIVE;
+		pthread_mutex_unlock(&lock);
+			
 		// Wait for signal
 		while((flag == 0) || (flag == Lux_Signal));
 		
@@ -53,7 +60,7 @@ void * TempThread(void * args)
 		{
 			flag = 0;
 			pthread_mutex_lock(&lock);
-			float Temperature_C = 0; //ADD FUNCION TO GET TEMP FROM I2C SENSOR
+			float Temperature_C = 0; //ADD FUNCTION TO GET TEMP FROM I2C SENSOR
 			pthread_mutex_unlock(&lock);
 
 			float Temperature_F = (Temperature_C * 1.8) + 32;
@@ -108,49 +115,43 @@ void * TempThread(void * args)
 			}
 		}
 		
-		// In case of user signals, log and kill the Temperature Thread
+		
+		/* Check for KILL signals */
 		else if(flag == SIGUSR1 || flag == SIGUSR2)
 		{
-			// Notifying user
-	//		printf("\nUser Signal Passed - Killing Temperature Thread\n");
 			SendToThreadQ(Temp, Logging, "INFO", "User Signal Passed - Killing Temperature Thread");
 
 			if(mq_unlink(TEMP_QUEUE) != 0)
 			{
 				Log_error(Temp, "mq_unlink()", errno, LOGGING_AND_LOCAL);
 			}
+			else
+			{
+				SendToThreadQ(Temp, Logging, "INFO", "Successfully unlinked Temp queue!");
+			}
 
-	//		printf("\n--->>>Temperature Thread Exited<<<---\n");
-			SendToThreadQ(Temp, Logging, "INFO", "--->>>Temperature Thread Exited<<<---");
-			
 			char TempTxt[150];
 			if(flag == SIGUSR1)
 			{
-				//printf("Exit Reason: User Signal 1 Received (%d)\n", flag);
-				
 				sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
 				SendToThreadQ(Temp, Logging, "INFO", TempTxt);
 			}
 			else
 			{
-				//printf("Exit Reason: User Signal 2 Received (%d)\n", flag);
-				
 				sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
 				SendToThreadQ(Temp, Logging, "INFO", TempTxt);
 			}
-//			flag = 1;
-
-			// Immediately terminate the thread (unlike pthread_cancel)
-			pthread_exit(0);
-
-			// Break the infinite loop
-			break;
-
+			
+			/* Decrement the LogKillSafe Global Variable */
+			pthread_mutex_lock(&lock);
+			LogKillSafe--; 
+			pthread_mutex_unlock(&lock);
+			
+			SendToThreadQ(Temp, Logging, "INFO", "Temp Thread has terminated successfully and will now exit");
+			
+			return 0;
 		}
-
 	}
-	
-	printf("DEBUG: TEMP PTHREAD HAS FINISHED AND WILL EXIT\n");
 }
 
 

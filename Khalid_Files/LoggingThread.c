@@ -5,12 +5,19 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <errno.h>
+#include <signal.h>
+#include <pthread.h>
 
 #include "LoggingThread.h"
 #include "Global_Defines.h"
 #include "My_Time.h"
 #include "POSIX_Qs.h"
 
+
+extern sig_atomic_t flag;
+extern uint8_t LogKillSafe;
+extern pthread_mutex_t lock;
+extern uint8_t AliveThreads;
 
 
 void * LoggingThread(void * args)
@@ -41,8 +48,8 @@ void * LoggingThread(void * args)
 		
 	MsgStruct MsgRecv;									//Temp variable used to store received messages
 	
-	/* Loop forever waiting for Msgs from other pThreads */
-	while(1)
+	/* Loop forever waiting for Msgs from other pThreads while at least one is alive */
+	while(LogKillSafe > 0)
 	{
 		/* Block until a msg is received */
 		if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
@@ -53,15 +60,30 @@ void * LoggingThread(void * args)
 		else
 		{
 			LogFile_Log(Arguments->LogFile_Path, &MsgRecv);
+			
+			/* Set alive bit */
+			pthread_mutex_lock(&lock);
+			AliveThreads |= LOGGING_ALIVE;
+			pthread_mutex_unlock(&lock);
 		}
 	}
+	
+	/* If we reach this point, it means a KILL signal was passed (USR1 or USR2) and */
+	/* the other pThreads terminated successfully, we must now kill the Logging Thread */
+	printf("[%lf] Logging pThread(INFO): No other threads are alive - Killing Logging Thread\n\n", GetCurrentTime());
 
 	if(mq_unlink(LOGGING_QUEUE) != 0)
 	{
 		Log_error(Logging, "mq_unlink()", errno, LOCAL_ONLY);
 	}
+	else
+	{
+		printf("[%lf] Logging pThread: Successfully unlinked Logging queue!\n\n", GetCurrentTime());
+	}
 	
-	printf("DEBUG: LOGGING PTHREAD HAS FINISHED AND WILL EXIT\n");
+	printf("[%lf] Logging Thread: Logging Thread has terminated successfully and will now exit\n\n", GetCurrentTime());
+
+	return 0;
 }
 
 
@@ -91,7 +113,7 @@ void LogFile_Init(char* LogFilePath)
 	char* Line4 = "*       *insert cool name here*       *\n";
 	char* Line5 = "*                                     *\n";
 	char* Line6 = "*  By: Khalid AlAwadhi | Poorn Mehta  *\n";
-	char* Line7 = "*                              v1.4   *\n";
+	char* Line7 = "*                              v1.5   *\n";
 	char* Line8 = "***************************************\n\n";
 
 	fprintf(MyFileP, Line1, GetCurrentTime(), syscall(SYS_gettid));

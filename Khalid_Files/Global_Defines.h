@@ -78,6 +78,15 @@ typedef struct Pthread_ArgsStruct
 #define LOGGING_ONLY				0x02
 #define LOCAL_ONLY					0x03 
  
+ 
+/***************************************
+ *  Alive Checking Defines:
+ *  (Used in Main pThread)
+ ***************************************/
+#define LOGGING_ALIVE 				0b00000001
+#define SOCKET_ALIVE 				0b00000010
+#define TEMP_ALIVE 					0b00000100
+#define LUX_ALIVE 					0b00001000
 
 
 /***************************************

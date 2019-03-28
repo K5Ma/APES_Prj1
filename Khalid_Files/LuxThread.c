@@ -15,7 +15,8 @@
 
 extern pthread_mutex_t lock;
 extern sig_atomic_t flag;
-
+extern uint8_t LogKillSafe;
+extern uint8_t AliveThreads;
 
 void * LuxThread(void * args)
 {
@@ -46,6 +47,12 @@ void * LuxThread(void * args)
 
 	while(1)
 	{
+		/* Set alive bit */
+		pthread_mutex_lock(&lock);
+		AliveThreads |= LUX_ALIVE;
+		pthread_mutex_unlock(&lock);
+		
+		
 		// Wait for signal
 		while((flag == 0) || (flag == Temperature_Signal));
 
@@ -63,7 +70,7 @@ void * LuxThread(void * args)
 
 			SendToThreadQ(Lux, Logging, "INFO", Lux_Text);
 
-			// Check if there is a message from socket
+			// Check if there is a message from Main or Socket
 			int resp = mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL);
 			if(resp != -1)
 			{
@@ -83,43 +90,42 @@ void * LuxThread(void * args)
 			}
 		}
 		
-		// In case of user signals, log and kill the Lux Thread thread
+		/* Check for KILL signals */
 		else if(flag == SIGUSR1 || flag == SIGUSR2)
 		{
-			// Notifying user
 			SendToThreadQ(Lux, Logging, "INFO", "User Signal Passed - Killing Lux Thread");
 
 			if(mq_unlink(LUX_QUEUE) != 0)
 			{
 				Log_error(Lux, "mq_unlink()", errno, LOGGING_AND_LOCAL);
 			}
+			else
+			{
+				SendToThreadQ(Lux, Logging, "INFO", "Successfully unlinked Lux queue!");
+			}
 
-			SendToThreadQ(Lux, Logging, "INFO", "--->>>Lux Thread Exited<<<---");
 			char TempTxt[150];
 			if(flag == SIGUSR1)
 			{
-				//printf("Exit Reason: User Signal 1 Received (%d)\n", flag);
 				sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
 				SendToThreadQ(Lux, Logging, "INFO", TempTxt);
 			}
 			else
 			{
-				//printf("Exit Reason: User Signal 2 Received (%d)\n", flag);
 				sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
 				SendToThreadQ(Lux, Logging, "INFO", TempTxt);
 			}
-	//		flag = 1;
-
-			// Immediately terminate the thread (unlike pthread_cancel)
-			pthread_exit(0);
-
-			// Break the infinite loop
-			break;
-
+			
+			/* Decrement the LogKillSafe Global Variable */
+			pthread_mutex_lock(&lock);
+			LogKillSafe--; 
+			pthread_mutex_unlock(&lock);
+			
+			SendToThreadQ(Lux, Logging, "INFO", "Lux Thread has terminated successfully and will now exit");
+			
+			return 0;
 		}
 	}
-	
-	printf("DEBUG: LUX PTHREAD HAS FINISHED AND WILL EXIT\n");
 }
 
 
