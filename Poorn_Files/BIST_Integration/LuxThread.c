@@ -10,7 +10,11 @@ pthread_mutex_t lock;
 uint8_t Lux_Warning = Lux_State_Day;
 
 //Initializing global variable - this will contain I2C bus's file descriptor
-int lux_file_des = -1;
+int lux_file_des;
+
+uint8_t Lux_Error_Retry;
+
+uint8_t Lux_Sensor_State;
 
 /*
 *		Function to write to any internal register of Light Sensor
@@ -25,7 +29,7 @@ uint8_t custom_lux_reg_write(uint8_t r_addr, uint8_t r_val)
 
 		if((r_addr == Lux_Res_Reg1) || (r_addr == Lux_Res_Reg2) || (r_addr == Lux_Res_Reg3) || (r_addr == Lux_Res_Reg4))		// Checking whether the passed register address is valid and writeable or not
 		{
-				Log_error(Lux, "Invalid Register Address Supplied (Lux Sensor)", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Invalid Register Address Supplied (Lux Sensor)", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 
@@ -79,20 +83,20 @@ uint8_t custom_test_lux_config(void)
 		// Powering ON the Sensor by writing 0x03 to Control Register
 		if(custom_lux_reg_write(Lux_Control_Reg, Lux_Control_Power_ON))
 		{
-				Log_error(Lux, "Write: Lux_Control_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Write: Lux_Control_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		// Reading back Control Register
 		if(custom_lux_reg_read(Lux_Control_Reg, &lux_reg_return))
 		{
-				Log_error(Lux, "Read: Lux_Control_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Read: Lux_Control_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		// Verifying value 0x03
 		if(Lux_Test_Control_Power(lux_reg_return))
 		{
 				sprintf(local_text, "Test: Power ON - Got %x Expected %x",(lux_reg_return & Lux_Control_Mask), Lux_Control_Power_ON);
-				Log_error(Lux, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Lux, Logging, "INFO", "\nPower ON Test Completed Successfully\n");
@@ -100,20 +104,20 @@ uint8_t custom_test_lux_config(void)
 		// Setting High Gain and High Integration Time, and Verifying the same
 		if(custom_lux_reg_write(Lux_Timing_Reg, Lux_Set_Gain_High(Lux_High_Integration_Time)))
 		{
-				Log_error(Lux, "Write: Lux_Timing_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Write: Lux_Timing_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		// Reading back Timing Register
 		if(custom_lux_reg_read(Lux_Timing_Reg, &lux_reg_return))
 		{
-				Log_error(Lux, "Read: Lux_Timing_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Read: Lux_Timing_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		// Verifying values
 		if((Lux_Test_High_Int_Time(lux_reg_return)) || (Lux_Test_Gain_High(lux_reg_return)))
 		{
 				sprintf(local_text, "Test: Gain and Integration Time - Got %x Expected %x",lux_reg_return, (Lux_High_Integration_Time | Lux_Gain_Mask));
-				Log_error(Lux, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Lux, Logging, "INFO", "\nGain and Integration Time Test Completed Successfully\n");
@@ -121,27 +125,27 @@ uint8_t custom_test_lux_config(void)
 		//Testing Interrupt Control Register with Test Data 0x0F
 		if(custom_lux_reg_write(Lux_Intrp_Ctrl_Reg, Lux_Interrupt_Test_Data))
 		{
-				Log_error(Lux, "Write: Lux_Intrp_Ctrl_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Write: Lux_Intrp_Ctrl_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		// Reading back Interrupt Control Register
 		if(custom_lux_reg_read(Lux_Intrp_Ctrl_Reg, &lux_reg_return))
 		{
-				Log_error(Lux, "Read: Lux_Intrp_Ctrl_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Read: Lux_Intrp_Ctrl_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		// Verifying values
 		if(Lux_Test_Intrp_Ctrl_Data(lux_reg_return))
 		{
 				sprintf(local_text, "Test: Interrupt Control Register - Got %x Expected %x",(lux_reg_return & Lux_Interrupt_Control_Mask), Lux_Interrupt_Test_Data);
-				Log_error(Lux, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Lux, Logging, "INFO", "\nInterrupt Control Register Test Completed Successfully\n");
 		// Reverting back
 		if(custom_lux_reg_write(Lux_Intrp_Ctrl_Reg, 0))
 		{
-				Log_error(Lux, "Write: Lux_Intrp_Ctrl_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Write: Lux_Intrp_Ctrl_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 
@@ -179,7 +183,7 @@ uint8_t custom_test_lux_config(void)
 		if((Lux_Test_ThrLow_Low(lux_data_write[0])) || (Lux_Test_ThrLow_High(lux_data_write[1])))
 		{
 				sprintf(local_text, "Test: Interrupt Threshold TLow - Got %x & %x Expected %x & %x",lux_data_write[0], lux_data_write[1], Lux_ThrLow_Low_Test_Data, Lux_ThrLow_High_Test_Data);
-				Log_error(Lux, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Lux, Logging, "INFO", "\nInterrupt Threshold TLow Test Completed Successfully\n");
@@ -214,7 +218,7 @@ uint8_t custom_test_lux_config(void)
 		if((Lux_Test_ThrHigh_Low(lux_data_write[0])) || (Lux_Test_ThrHigh_High(lux_data_write[1])))
 		{
 				sprintf(local_text, "Test: Interrupt Threshold THigh - Got %x & %x Expected %x & %x",lux_data_write[0], lux_data_write[1], Lux_ThrHigh_Low_Test_Data, Lux_ThrHigh_High_Test_Data);
-				Log_error(Lux, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Lux, Logging, "INFO", "\nInterrupt Threshold THigh Test Completed Successfully\n");
@@ -222,7 +226,7 @@ uint8_t custom_test_lux_config(void)
 		// Reading ID Register for testing part and revision number
 		if(custom_lux_reg_read(Lux_ID_Reg, &lux_reg_return))
 		{
-				Log_error(Lux, "Read: Lux_ID_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Read: Lux_ID_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		// Verifying values (part number)
@@ -230,7 +234,7 @@ uint8_t custom_test_lux_config(void)
 		{
 				printf("\nLux ID Register Register Test Failed %x\n", lux_reg_return);
 				sprintf(local_text, "Test: Interrupt Threshold THigh - Got %x Expected %x",((lux_reg_return & Lux_Part_No_Mask) >> Lux_Part_No_Pos), Lux_Part_No);
-				Log_error(Lux, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Lux, Logging, "INFO", "\nID Register Test Succeeded\n");
@@ -279,14 +283,14 @@ uint8_t get_lux(float *l_data)
 		// Powering ON the Sensor by writing 0x03 to Control Register
 		if(custom_lux_reg_write(Lux_Control_Reg, Lux_Control_Power_ON))
 		{
-				Log_error(Lux, "Write: Lux_Control_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Write: Lux_Control_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 
 		// Setting High Gain and High Integration Time
 		if(custom_lux_reg_write(Lux_Timing_Reg, Lux_Set_Gain_High(Lux_High_Integration_Time)))
 		{
-				Log_error(Lux, "Write: Lux_Timing_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Write: Lux_Timing_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 
@@ -338,7 +342,17 @@ uint8_t get_lux(float *l_data)
 void * LuxThread(void * args)
 {
 		/* Init the Lux Thread */
-		LuxThread_Init();
+		if(LuxThread_Init())
+		{
+			Log_error(Lux, "Error while Initializing Lux Sensor", ENOMSG, LOGGING_AND_LOCAL);
+			Lux_Error_Retry = Lux_Max_Retries;
+			Lux_Sensor_State = Sensor_Offline;
+		}
+		else
+		{
+			Lux_Error_Retry = Lux_No_Retry;
+			Lux_Sensor_State = Sensor_Online;
+		}
 
 		/* Create the Lux Thread POSIX queue */
 		mqd_t MQ;											//Message queue descriptor
@@ -374,46 +388,51 @@ void * LuxThread(void * args)
 				// Wait for signal
 				while((flag == 0) || (flag == Temperature_Signal));
 
-				// If timer interrupt has passed signal, log cpu usage
-				if(flag == Lux_Signal)
+				if((flag == Lux_Signal) && (Lux_Sensor_State == Sensor_Online))
 				{
 						flag = 0;
 						pthread_mutex_lock(&lock);
 						resp = get_lux(&Lux_Value);
 						pthread_mutex_unlock(&lock);
+
 						if(resp)
 						{
-								Log_error(Lux, "\nError while Reading Lux\n", errno, LOGGING_AND_LOCAL);
+								Log_error(Lux, "\nError while Reading Lux\n", ENOMSG, LOGGING_AND_LOCAL);
+								Lux_Error_Retry = Lux_Max_Retries;
+								Lux_Sensor_State = Sensor_Offline;
 						}
-
-						sprintf(Lux_Text, "Lux is *%f*", Lux_Value);
-						SendToThreadQ(Lux, Logging, "INFO", Lux_Text);
-
-						// Check if there is a message from socket
-						int resp = mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL);
-						if(resp != -1)
+						else
 						{
-								if(resp == sizeof(MsgStruct))
-								{
-										if(strcmp("LX",MsgRecv.Msg) == 0)
-										{
-												sprintf(Lux_Text, "Lux is *%f*", Lux_Value);
-										}
-										SendToThreadQ(Lux, Socket, "INFO", Lux_Text);
-								}
-								else
-								{
-										sprintf(local_text, "From Socket Thread: Got %d Bytes Expected %d Bytes", resp, sizeof(MsgStruct));
-										Log_error(Lux, local_text, errno, LOGGING_AND_LOCAL);
-								}
+							sprintf(Lux_Text, "Lux is *%f*", Lux_Value);
+							SendToThreadQ(Lux, Logging, "INFO", Lux_Text);
+
+							// Check if there is a message from socket
+							int resp = mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL);
+							if(resp != -1)
+							{
+									if(resp == sizeof(MsgStruct))
+									{
+											if(strcmp("LX",MsgRecv.Msg) == 0)
+											{
+													sprintf(Lux_Text, "Lux is *%f*", Lux_Value);
+											}
+											SendToThreadQ(Lux, Socket, "INFO", Lux_Text);
+									}
+									else
+									{
+											sprintf(local_text, "From Socket Thread: Got %d Bytes Expected %d Bytes", resp, sizeof(MsgStruct));
+											Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
+									}
+							}
 						}
 				}
 
 				// In case of user signals, log and kill the Lux Thread thread
-				else if(flag == SIGUSR1 || flag == SIGUSR2)
+				else if((flag == SIGUSR1) || (flag == SIGUSR2) || ((Lux_Sensor_State == Sensor_Offline) && (Lux_Error_Retry == Lux_No_Retry)))
 				{
 						// Notifying user
-						SendToThreadQ(Lux, Logging, "INFO", "User Signal Passed - Killing Lux Thread");
+						if((flag == SIGUSR1) || (flag == SIGUSR2))		SendToThreadQ(Lux, Logging, "INFO", "User Signal Passed - Killing Lux Thread");
+						else		Log_error(Lux,"All Attempts to get the Lux Sensor Online Failed... Killing Lux Thread", ENOMSG, LOGGING_AND_LOCAL);
 
 						if(mq_unlink(LUX_QUEUE) != 0)			Log_error(Lux, "mq_unlink()", errno, LOGGING_AND_LOCAL);
 
@@ -443,7 +462,7 @@ void * LuxThread(void * args)
 
 
 
-void LuxThread_Init()
+uint8_t LuxThread_Init(void)
 {
 		char Text[60];
 
@@ -454,22 +473,23 @@ void LuxThread_Init()
 		if(custom_lux_init() == 0)	SendToThreadQ(Lux, Logging, "INFO", "\nLux Sensor Initiliazed Successfully\n");
 		else
 		{
-				Log_error(Lux, "Lux Sensor Initialization... Exiting", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Lux Sensor Initialization... Exiting", ENOMSG, LOGGING_AND_LOCAL);
 				pthread_mutex_unlock(&lock);
-				pthread_exit(0);
+				return 1;
 		}
 
 		// BIST for Lux Sensor
-		if(custom_test_lux_config() == 0)	SendToThreadQ(Lux, Logging, "INFO", "\nLux Sensor Built-in-self-Test Passed Successfully\n");
+		if(custom_test_lux_config() == 0)		SendToThreadQ(Lux, Logging, "INFO", "\nLux Sensor Built-in-self-Test Passed Successfully\n");
 		else
 		{
-				Log_error(Lux, "Lux Sensor Built-in-self-Test... Exiting", errno, LOGGING_AND_LOCAL);
+				Log_error(Lux, "Lux Sensor Built-in-self-Test... Exiting", ENOMSG, LOGGING_AND_LOCAL);
 				pthread_mutex_unlock(&lock);
-				pthread_exit(0);
+				return 1;
 		}
 
 		pthread_mutex_unlock(&lock);
 
 		SendToThreadQ(Lux, Logging, "INFO", "\nStarting Normal Operation\n");
 
+		return 0;
 }

@@ -36,8 +36,16 @@
 extern sig_atomic_t flag;
 extern pthread_mutex_t lock;
 
+extern int temp_file_des;
+extern int lux_file_des;
+extern uint8_t Temp_Error_Retry;
+extern uint8_t Lux_Error_Retry;
+extern uint8_t Temp_Sensor_State;
+extern uint8_t Lux_Sensor_State;
 extern uint8_t Temp_Warning;
 extern uint8_t Lux_Warning;
+
+extern uint8_t Counter;
 
 #define Temperature_Signal	0xF0
 #define Lux_Signal		0xF1
@@ -46,7 +54,14 @@ extern uint8_t Lux_Warning;
 #define Fahrenheit	2
 #define Kelvin		3
 
+#define Sensor_Online		1
+#define Sensor_Offline	0
+
 #define PORT 8080
+
+#define Timer_Interval		500		// In ms
+#define Sensor_Retry_Period		3000		// In ms
+#define Counter_Threshold		(Sensor_Retry_Period / Timer_Interval)
 
 //Path of I2C Bus
 #define I2C_BUS		(char *)"/dev/i2c-2"

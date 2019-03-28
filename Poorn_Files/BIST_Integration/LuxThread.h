@@ -13,6 +13,9 @@
 // Address of light sensor
 #define Lux_Addr	0x39
 
+#define Lux_Max_Retries			10
+#define Lux_No_Retry				0
+
 #define Lux_State_Night			0x01
 #define Lux_State_Day				0x02
 
@@ -135,7 +138,7 @@ void * LuxThread(void * args);
  * RETURNS: NONE
  *
  **************************************************************************************************************/
-void LuxThread_Init();
+uint8_t LuxThread_Init(void);
 
 
 #endif /* LUXTHREAD_H_ */

@@ -17,7 +17,11 @@ pthread_mutex_t lock;
 uint8_t Temp_Warning = Temp_Normal;
 
 //Initializing global variable - this will contain I2C bus's file descriptor
-int temp_file_des = -1;
+int temp_file_des;
+
+uint8_t Temp_Error_Retry;
+
+uint8_t Temp_Sensor_State;
 
 /*
 *		Function to write to any internal register of Temperature Sensor
@@ -33,7 +37,7 @@ uint8_t custom_temp_reg_write(uint8_t r_addr, uint16_t r_val)
 		r_arr[2] = r_val & 0x00FF;
 		if((r_addr < 1) || (r_addr > 3))		// Checking whether the passed register address is valid and writeable or not
 		{
-				Log_error(Temp, "Invalid Register Address Supplied (Temp Sensor)", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Invalid Register Address Supplied (Temp Sensor)", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		if(write_reg_ptr(&r_addr))		// Writing to pointer register first
@@ -83,19 +87,19 @@ uint8_t custom_set_temp_thresholds(void)
 		// Writing THigh Register
 		if(custom_temp_reg_write(Temp_THigh_Reg, Temp_High_Threshold << 8))
 		{
-				Log_error(Temp, "Write: Temp_THigh_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Write: Temp_THigh_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		// Reading back THigh Register
 		if(custom_temp_reg_read(Temp_THigh_Reg, &temp_reg_return[0]))
 		{
-				Log_error(Temp, "Read: Temp_THigh_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Read: Temp_THigh_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		// Verifying THigh Register
 		if(temp_reg_return[0] != Temp_High_Threshold)
 		{
-					Log_error(Temp, "THigh Setup", errno, LOGGING_AND_LOCAL);
+					Log_error(Temp, "THigh Setup", ENOMSG, LOGGING_AND_LOCAL);
 					return 1;
 		}
 		sprintf(local_text, "\nTHigh Set at %d deg C Successfully\n", Temp_High_Threshold);
@@ -104,19 +108,19 @@ uint8_t custom_set_temp_thresholds(void)
 		// Writing TLow Register
 		if(custom_temp_reg_write(Temp_TLow_Reg, Temp_Low_Threshold << 8))
 		{
-				Log_error(Temp, "Write: Temp_TLow_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Write: Temp_TLow_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		// Reading back TLow Register
 		if(custom_temp_reg_read(Temp_TLow_Reg, &temp_reg_return[0]))
 		{
-				Log_error(Temp, "Read: Temp_TLow_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Read: Temp_TLow_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		// Verifying TLow Register
 		if(temp_reg_return[0] != Temp_Low_Threshold)
 		{
-				Log_error(Temp, "TLow Setup", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "TLow Setup", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		sprintf(local_text, "\nTLow Set at %d deg C Successfully\n", Temp_Low_Threshold);
@@ -139,7 +143,7 @@ uint8_t custom_test_temp_config(void)
 		//First Reading without Writing
 		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
 		{
-				Log_error(Temp, "Read: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
@@ -147,7 +151,7 @@ uint8_t custom_test_temp_config(void)
 		if((temp_config_return != Temp_Config_Default_1) && (temp_config_return != Temp_Config_Default_2))
 		{
 				sprintf(local_text, "Test: Default Config - Got %x Expected %x or %x",temp_config_return, Temp_Config_Default_1, Temp_Config_Default_2);
-				Log_error(Temp, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Temp, Logging, "INFO", "\nDefault Temp Config Check Succeeded\n");
@@ -155,13 +159,13 @@ uint8_t custom_test_temp_config(void)
 		//Setting Shutdown Mode to ON
 		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Shutdown_On))
 		{
-				Log_error(Temp, "Write: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		//Reading Shutdown Mode Status
 		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
 		{
-				Log_error(Temp, "Read: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
@@ -169,7 +173,7 @@ uint8_t custom_test_temp_config(void)
 		if(Temp_Test_Shutdown_On(temp_config_return))
 		{
 				sprintf(local_text, "Test: Shutdown Mode - Got %x Expected 1",((temp_config_return & Temp_Shutdown_Mask) >> Temp_Shutdown_Pos));
-				Log_error(Temp, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Temp, Logging, "INFO", "\nShutdown Mode ON Test Succeeded\n");
@@ -177,13 +181,13 @@ uint8_t custom_test_temp_config(void)
 		//Setting Shutdown Mode to OFF
 		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Shutdown_Off))
 		{
-				Log_error(Temp, "Write: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		//Reading Shutdown Mode Status
 		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
 		{
-				Log_error(Temp, "Read: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
@@ -191,7 +195,7 @@ uint8_t custom_test_temp_config(void)
 		if(Temp_Test_Shutdown_Off(temp_config_return))
 		{
 				sprintf(local_text, "Test: Shutdown Mode - Got %x Expected 0",((temp_config_return & Temp_Shutdown_Mask) >> Temp_Shutdown_Pos));
-				Log_error(Temp, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Temp, Logging, "INFO", "\nShutdown Mode OFF Test Succeeded\n");
@@ -199,13 +203,13 @@ uint8_t custom_test_temp_config(void)
 		//Fault Bits - Checking both bits by setting them to 1
 		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Fault_Test))
 		{
-				Log_error(Temp, "Write: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		//Reading Fault Bits Status
 		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
 		{
-				Log_error(Temp, "Read: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
@@ -213,7 +217,7 @@ uint8_t custom_test_temp_config(void)
 		if(Temp_Test_Fault(temp_config_return))
 		{
 				sprintf(local_text, "Test: Fault Bits - Got %x Expected 3",((temp_config_return & Temp_Fault_Mask) >> Temp_Fault_Pos));
-				Log_error(Temp, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Temp, Logging, "INFO", "\nFault Bits Test Succeeded\n");
@@ -221,13 +225,13 @@ uint8_t custom_test_temp_config(void)
 		//Setting Extended Mode to ON
 		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Extended_Set))
 		{
-				Log_error(Temp, "Write: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		//Reading Extended Mode Status
 		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
 		{
-				Log_error(Temp, "Read: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
@@ -235,7 +239,7 @@ uint8_t custom_test_temp_config(void)
 		if(Temp_Test_Extended_Set(temp_config_return))
 		{
 				sprintf(local_text, "Test: Extended Mode Set - Got %x Expected 1",((temp_config_return & Temp_Extended_Mask) >> Temp_Extended_Pos));
-				Log_error(Temp, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Temp, Logging, "INFO", "\nExtended Mode Set Test Succeeded\n");
@@ -243,13 +247,13 @@ uint8_t custom_test_temp_config(void)
 		//Setting Extended Mode to OFF
 		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Extended_Clear))
 		{
-				Log_error(Temp, "Write: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		//Reading Extended Mode Status
 		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
 		{
-				Log_error(Temp, "Read: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
@@ -257,7 +261,7 @@ uint8_t custom_test_temp_config(void)
 		if(Temp_Test_Extended_Clear(temp_config_return))
 		{
 				sprintf(local_text, "Test: Extended Mode Clear - Got %x Expected 0",((temp_config_return & Temp_Extended_Mask) >> Temp_Extended_Pos));
-				Log_error(Temp, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Temp, Logging, "INFO", "\nExtended Mode Clear Test Succeeded\n");
@@ -265,13 +269,13 @@ uint8_t custom_test_temp_config(void)
 		//Setting up Conversion Rate
 		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Conversion_Test))
 		{
-				Log_error(Temp, "Write: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		//Reading Conversion Rate
 		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
 		{
-				Log_error(Temp, "Read: Temp_Config_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
@@ -279,7 +283,7 @@ uint8_t custom_test_temp_config(void)
 		if(Temp_Test_Conversion(temp_config_return))
 		{
 				sprintf(local_text, "Test: Conversion Rate - Got %x Expected 0",((temp_config_return & Temp_Conversion_Mask) >> Temp_Conversion_Pos));
-				Log_error(Temp, local_text, errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		SendToThreadQ(Temp, Logging, "INFO", "\nConversion Rate Test Succeeded\n");
@@ -297,7 +301,7 @@ uint8_t get_temp(float *t_data)
 		static uint8_t temp_reg_return[2];
 		if(custom_temp_reg_read(Temp_Data_Reg, &temp_reg_return[0]))
 		{
-				Log_error(Temp, "Read: Temp_Data_Reg", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Read: Temp_Data_Reg", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
 		*t_data = ((temp_reg_return[0] << 8) | temp_reg_return[1]) >> 4;
@@ -335,7 +339,18 @@ uint8_t custom_temp_init(void)
 void * TempThread(void * args)
 {
 		/* Init the Temp Thread */
-		TempThread_Init();
+		if(TempThread_Init())
+		{
+			Log_error(Temp, "Error while Initializing Temperature Sensor", ENOMSG, LOGGING_AND_LOCAL);
+			Temp_Error_Retry = Temp_Max_Retries;
+			Temp_Sensor_State = Sensor_Offline;
+		}
+		else
+		{
+			Temp_Error_Retry = Temp_No_Retry;
+			Temp_Sensor_State = Sensor_Online;
+		}
+
 
 		/* Create the Temp Thread POSIX queue */
 		mqd_t MQ;											//Message queue descriptor
@@ -369,15 +384,18 @@ void * TempThread(void * args)
 				// Wait for signal
 				while((flag == 0) || (flag == Lux_Signal));
 
-				if(flag == Temperature_Signal)
+				if((flag == Temperature_Signal) && (Temp_Sensor_State == Sensor_Online))
 				{
 						flag = 0;
 						pthread_mutex_lock(&lock);
 						resp = get_temp(&Temperature_C);
 						pthread_mutex_unlock(&lock);
+
 						if(resp)
 						{
-								Log_error(Temp, "\nError while Reading Temperature\n", errno, LOGGING_AND_LOCAL);
+								Log_error(Temp, "Error while Reading Temperature", ENOMSG, LOGGING_AND_LOCAL);
+								Temp_Error_Retry = Temp_Max_Retries;
+								Temp_Sensor_State = Sensor_Offline;
 						}
 						else
 						{
@@ -416,18 +434,20 @@ void * TempThread(void * args)
 										else
 										{
 												sprintf(local_text, "From Socket Thread: Got %d Bytes Expected %d Bytes", resp, sizeof(MsgStruct));
-												Log_error(Temp, local_text, errno, LOGGING_AND_LOCAL);
+												Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 										}
 								}
 						}
 				}
 
 				// In case of user signals, log and kill the Temperature Thread
-				else if(flag == SIGUSR1 || flag == SIGUSR2)
+				else if((flag == SIGUSR1) || (flag == SIGUSR2) || ((Temp_Sensor_State == Sensor_Offline) && (Temp_Error_Retry == Temp_No_Retry)))
 				{
 						// Notifying user
 				//		printf("\nUser Signal Passed - Killing Temperature Thread\n");
-						SendToThreadQ(Temp, Logging, "INFO", "User Signal Passed - Killing Temperature Thread");
+				if((flag == SIGUSR1) || (flag == SIGUSR2))		SendToThreadQ(Temp, Logging, "INFO", "User Signal Passed - Killing Temperature Thread");
+				else		Log_error(Temp,"All Attempts to get the Temperature Sensor Online Failed... Killing Temperature Thread", ENOMSG, LOGGING_AND_LOCAL);
+
 
 						if(mq_unlink(TEMP_QUEUE) != 0)			Log_error(Temp, "mq_unlink()", errno, LOGGING_AND_LOCAL);
 
@@ -442,7 +462,7 @@ void * TempThread(void * args)
 							sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
 							SendToThreadQ(Temp, Logging, "INFO", TempTxt);
 						}
-						else
+						else if(flag == SIGUSR2)
 						{
 							sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
 							SendToThreadQ(Temp, Logging, "INFO", TempTxt);
@@ -458,7 +478,7 @@ void * TempThread(void * args)
 
 
 
-void TempThread_Init()
+uint8_t TempThread_Init(void)
 {
 		char Text[60];
 
@@ -469,39 +489,41 @@ void TempThread_Init()
 		if(custom_temp_init() == 0)		SendToThreadQ(Temp, Logging, "INFO", "\nTemperature Sensor Initiliazed Successfully\n");
 		else
 		{
-				Log_error(Temp, "Temperature Sensor Initialization... Exiting", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Temperature Sensor Initialization... Exiting", ENOMSG, LOGGING_AND_LOCAL);
 				pthread_mutex_unlock(&lock);
-				pthread_exit(0);
+				return 1;
 		}
 
 		// Setting thresholds
 		if(custom_set_temp_thresholds() == 0)		SendToThreadQ(Temp, Logging, "INFO", "\nTemperature Sensor Thresholds Set Successfully\n");
 		else
 		{
-				Log_error(Temp, "Temperature Sensor Thresholds... Exiting", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Temperature Sensor Thresholds... Exiting", ENOMSG, LOGGING_AND_LOCAL);
 				pthread_mutex_unlock(&lock);
-				pthread_exit(0);
+				return 1;
 		}
 
 		// BIST for Temp Sensor
 		if(custom_test_temp_config() == 0)		SendToThreadQ(Temp, Logging, "INFO", "\nTemperature Sensor Built-in-self-Test Passed Successfully\n");
 		else
 		{
-				Log_error(Temp, "Temperature Sensor Built-in-self-Test... Exiting", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Temperature Sensor Built-in-self-Test... Exiting", ENOMSG, LOGGING_AND_LOCAL);
 				pthread_mutex_unlock(&lock);
-				pthread_exit(0);
+				return 1;
 		}
 
 		// Resetting Config
 		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Config_Default_1) == 0)			SendToThreadQ(Temp, Logging, "INFO", "\nTemperature Sensor Resetted Successfully\n");
 		else
 		{
-				Log_error(Temp, "Temperature Sensor Reset... Exiting", errno, LOGGING_AND_LOCAL);
+				Log_error(Temp, "Temperature Sensor Reset... Exiting", ENOMSG, LOGGING_AND_LOCAL);
 				pthread_mutex_unlock(&lock);
-				pthread_exit(0);
+				return 1;
 		}
 
 		pthread_mutex_unlock(&lock);
 
 		SendToThreadQ(Temp, Logging, "INFO", "\nStarting Normal Operation\n");
+
+		return 0;
 }

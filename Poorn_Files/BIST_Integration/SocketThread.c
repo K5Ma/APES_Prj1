@@ -145,7 +145,7 @@ void * SocketThread(void * args)
 			}
 			else if(resp < sizeof(MsgStruct))
 			{
-				Log_error(Socket, "mq_timedreceive()", errno, LOGGING_AND_LOCAL);
+				Log_error(Socket, "mq_timedreceive()", ENOMSG, LOGGING_AND_LOCAL);
 				p1->num = 0;
 			}
 			else if(resp == sizeof(MsgStruct))

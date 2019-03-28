@@ -17,6 +17,9 @@
 #define Temp_Warning_High		0x01
 #define Temp_Warning_Low		0x02
 
+#define Temp_Max_Retries			10
+#define Temp_No_Retry					0
+
 //Internal Addresses of different Registers
 #define Temp_Data_Reg			0x00
 #define Temp_Config_Reg		0x01
@@ -103,7 +106,7 @@ void * TempThread(void * args);
  * RETURNS: NONE
  *
  **************************************************************************************************************/
-void TempThread_Init();
+uint8_t TempThread_Init(void);
 
 
 #endif /* TEMPTHREAD_H_ */
