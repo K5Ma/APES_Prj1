@@ -119,6 +119,7 @@ int main(int argc, char *argv[])
 
 	int new_socket, info_in, info_out;
 	struct sockaddr_in client;
+	struct hostent *custom_host;
 
 	// socket init on client end
 	new_socket = socket(AF_INET, SOCK_STREAM, 0);
@@ -139,12 +140,20 @@ int main(int argc, char *argv[])
 
 	client.sin_family = AF_INET;
 
+	custom_host = gethostbyname("localhost");
+	if(custom_host == 0)
+	{
+		printf("\nSocket Getting Failed\n");
+		return(0);
+	}
+
 	if(inet_pton(AF_INET, target_ip, &client.sin_addr)<=0)
 	{
 	printf("\nInvalid address/ Address not supported \n");
 	return -1;
 	}
 
+//	memcpy(&client.sin_addr, custom_host->h_addr, custom_host->h_length);
 	client.sin_port = htons(PORT);
 
 	if(connect(new_socket, (struct sockaddr *)&client, sizeof(client)) < 0)

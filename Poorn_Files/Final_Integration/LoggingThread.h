@@ -1,17 +1,19 @@
 /*
- * LoggingThread.h
- *
- *      Author: Khalid AlAwadhi
- *      Spring 2019
- */
+*		File: LoggingThread.h
+*		Purpose: The header file containing functionalities and thread of Logger
+*		Owners: Poorn Mehta & Khalid AlAwadhi
+*		Last Modified: 3/28/2019
+*/
+
 #ifndef LOGGINGTHREAD_H_
 #define LOGGINGTHREAD_H_
 
 #include "Global_Defines.h"
+#include "main.h"
 
 
 /**************************************************************************************************************
- * USAGE: This function contains all what the Logging pThread will do. 
+ * USAGE: This function contains all what the Logging pThread will do.
  *
  * PARAMETERS:
  *            - NONE
@@ -24,7 +26,7 @@ void * LoggingThread(void * args);
 
 
 /**************************************************************************************************************
- * USAGE: This function will be called initially when the Logging Thread is first initialized. 
+ * USAGE: This function will be called initially when the Logging Thread is first initialized.
  *
  * PARAMETERS:
  *            - char* LogFilePath => Path to the log file
@@ -38,7 +40,7 @@ void LogFile_Init(char* LogFilePath);
 
 /**************************************************************************************************************
  * USAGE: This function will log messages received by the Logging Thread. It will decode the message and
- *        specify the destination and source it came from and log it to a file.  
+ *        specify the destination and source it came from and log it to a file.
  *
  * PARAMETERS:
  *            - char* LogFilePath => Path to the log file

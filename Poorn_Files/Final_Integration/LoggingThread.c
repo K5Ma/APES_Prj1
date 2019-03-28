@@ -1,23 +1,20 @@
-#include <stdio.h>
-#include <sys/time.h>
-#include <stdlib.h>
-#include <mqueue.h>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <errno.h>
-#include <signal.h>
-#include <pthread.h>
+/*
+*		File: LoggingThread.c
+*		Purpose: The source file containing functionalities and thread of Logger
+*		Owners: Poorn Mehta & Khalid AlAwadhi
+*		Last Modified: 3/28/2019
+*/
 
 #include "LoggingThread.h"
 #include "Global_Defines.h"
 #include "My_Time.h"
 #include "POSIX_Qs.h"
 
+pthread_mutex_t lock;
 
-extern pthread_mutex_t lock;
-volatile sig_atomic_t flag;
-volatile uint8_t LogKillSafe;
-volatile uint8_t AliveThreads;
+sig_atomic_t flag;
+uint8_t LogKillSafe;
+uint8_t AliveThreads;
 
 
 void * LoggingThread(void * args)
@@ -71,6 +68,10 @@ void * LoggingThread(void * args)
 	/* If we reach this point, it means a KILL signal was passed (USR1 or USR2) and */
 	/* the other pThreads terminated successfully, we must now kill the Logging Thread */
 	printf("[%lf] Logging pThread(INFO): No other threads are alive - Killing Logging Thread\n\n", GetCurrentTime());
+
+	pthread_mutex_lock(&lock);
+	AliveThreads &= ~LOGGING_ALIVE;
+	pthread_mutex_unlock(&lock);
 
 	if(mq_unlink(LOGGING_QUEUE) != 0)
 	{
