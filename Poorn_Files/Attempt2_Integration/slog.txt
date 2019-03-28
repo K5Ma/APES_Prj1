@@ -1,10 +1,10 @@
 
 
-Client Start with PID: 10790
-Time Stamp: *1553635186.670935*
+Client Start with PID: 13716
+Time Stamp: *1553716552.231280*
 IPC using Socket
 No special resources being utilized
 
-<1553635186.670940> Sending to Server *Lux* and Unit: 1
-<1553635186.670989> String from Server *Lux is *47.765961**
-<1553635186.670989> Temp is in C
+<1553716552.231281> Sending to Server *Lux* and Unit: 1
+<1553716552.231313> String from Server *Lux is *133.687943**
+<1553716552.231313> Temp is in C
