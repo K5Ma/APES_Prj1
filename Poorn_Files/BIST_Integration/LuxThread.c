@@ -443,7 +443,7 @@ void * LuxThread(void * args)
 								sprintf(Lux_Text, "Exit Reason: User Signal 1 Received (%d)", flag);
 								SendToThreadQ(Lux, Logging, "INFO", Lux_Text);
 						}
-						else
+						else if(flag == SIGUSR2)
 						{
 								//printf("Exit Reason: User Signal 2 Received (%d)\n", flag);
 								sprintf(Lux_Text, "Exit Reason: User Signal 2 Received (%d)", flag);

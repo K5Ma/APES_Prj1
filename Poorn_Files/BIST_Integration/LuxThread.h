@@ -1,14 +1,14 @@
 #ifndef LUXTHREAD_H_
 #define LUXTHREAD_H_
-
-#include "main.h"
-
 /*
 *		File: LuxThread.h
 *		Purpose: To interface with Light Sensor (APDS9301) on I2C bus, on BeagleBoneGreen, running custom linux kernel (platform by Buildroot)
 *		Owner: Poorn Mehta
 *		Date: 3/26/2019
 */
+#include "main.h"
+
+
 
 // Address of light sensor
 #define Lux_Addr	0x39
