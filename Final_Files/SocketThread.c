@@ -2,6 +2,7 @@
 *		File: SocketThread.c
 *		Purpose: The source file containing functionalities and thread of Socket
 *		Owners: Poorn Mehta & Khalid AlAwadhi
+*		Spring 2019
 */
 
 #include "SocketThread.h"
@@ -43,7 +44,7 @@ void * SocketThread(void * args)
 		Log_error(Socket, "Socket Init Failed... Exiting Thread", ENOMSG, LOGGING_AND_LOCAL);
 		return 0;
 	}
-	else		SendToThreadQ(Socket, Logging, "INFO", "\nSocket Init Succeeded\n");
+	else		SendToThreadQ(Socket, Logging, "INFO", "Socket Init Succeeded");
 
 	/* Create the Socket Thread POSIX queue */
 	mqd_t MQ;											//Message queue descriptor
@@ -98,12 +99,12 @@ void * SocketThread(void * args)
             char Socket_Text_q[60];
             sprintf(loglevel_q, "INFO");
 
-            if(strcmp("Exit", p2->str) == 0)
+            if( strcmp("Exit", p2->str) == 0 )
             {
                 sprintf(Socket_Text, "Socket Thread is Exiting");
                 SendToThreadQ(Socket, Logging, loglevel_sock, Socket_Text);
 //*************************************************************************************************************************88
-                SendToThreadQ(Socket, Logging, "INFO", "User Signal Passed - Killing Socket Thread");
+           //     SendToThreadQ(Socket, Logging, "INFO", "User Signal Passed - Killing Socket Thread");
 
                 if(mq_unlink(SOCKET_QUEUE) != 0)
                 {
@@ -114,23 +115,23 @@ void * SocketThread(void * args)
                     SendToThreadQ(Socket, Logging, "INFO", "Successfully unlinked Socket queue!");
                 }
 
-                char TempTxt[150];
-                if(flag == SIGUSR1)
-                {
-                    sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
-                    SendToThreadQ(Socket, Logging, "INFO", TempTxt);
-                }
-                else
-                {
-                    sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
-                    SendToThreadQ(Socket, Logging, "INFO", TempTxt);
-                }
+//                char TempTxt[150];
+//                if(flag == SIGUSR1)
+//                {
+//                    sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
+//                    SendToThreadQ(Socket, Logging, "INFO", TempTxt);
+//                }
+//                else
+//                {
+//                    sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
+//                    SendToThreadQ(Socket, Logging, "INFO", TempTxt);
+//                }
 
-								/* Decrement the LogKillSafe and clear the alive bit */
-								pthread_mutex_lock(&lock_var);
-								LogKillSafe--;
-								AliveThreads &= ~SOCKET_ALIVE;
-								pthread_mutex_unlock(&lock_var);
+				/* Decrement the LogKillSafe and clear the alive bit */
+				pthread_mutex_lock(&lock_var);
+				LogKillSafe--;
+				AliveThreads &= ~SOCKET_ALIVE;
+				pthread_mutex_unlock(&lock_var);
 
                 SendToThreadQ(Socket, Logging, "INFO", "Socket Thread has terminated successfully and will now exit");
 
@@ -293,7 +294,7 @@ uint8_t kill_socket_init(void)
     temp_sock = socket(AF_INET, SOCK_STREAM, 0);
     if(temp_sock < 0)
     {
-				Log_error(Main, "\nSocket Creation Failed\n", errno, LOGGING_AND_LOCAL);
+		Log_error(Main, "Socket Creation Failed", errno, LOGGING_AND_LOCAL);
         return 1;
     }
 
@@ -301,7 +302,7 @@ uint8_t kill_socket_init(void)
 
     if(inet_pton(AF_INET, "127.0.0.1", &t_client.sin_addr)<=0)
     {
-		    Log_error(Main, "\nInvalid/Unsupported Target IP Address\n", errno, LOGGING_AND_LOCAL);
+		    Log_error(Main, "Invalid/Unsupported Target IP Address", errno, LOGGING_AND_LOCAL);
 		    return 1;
     }
 
@@ -309,14 +310,14 @@ uint8_t kill_socket_init(void)
 
     if(connect(temp_sock, (struct sockaddr *)&t_client, sizeof(t_client)) < 0)
     {
-				Log_error(Main, "\nSocket Connection Failed\n", errno, LOGGING_AND_LOCAL);
+		Log_error(Main, "Socket Connection Failed", errno, LOGGING_AND_LOCAL);
         return 1;
     }
 
     t_out = write(temp_sock,pt_strct1,sizeof(t_strct));
     if (t_out < 0)
     {
-				Log_error(Main, "\nSocket Writing Failed\n", errno, LOGGING_AND_LOCAL);
+		Log_error(Main, "Socket Writing Failed", errno, LOGGING_AND_LOCAL);
         return 1;
     }
 

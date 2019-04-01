@@ -11,6 +11,7 @@
 #include "SocketThread.h"
 #include "TempThread.h"
 #include "LuxThread.h"
+#include "GPIO_PINs.h"
 
 
 /* Global Variables */
@@ -52,9 +53,20 @@ uint8_t Socket_State = Socket_Offline;
  *
  * 3- [COMPLETED] FIX THREAD KILLING BUG
  *
- * 4- [] ADD POORN FINAL CODE
+ * 4- [COMPLETED] ADD POORN FINAL CODE
  * 
- * 5- []
+ * 5- [COMPLETED] LOG ALIVE MSGS TO LOGGER 
+ * 
+ * 6- [COMPLETED] ADD COMMENTS
+ * 
+ * 7- [COMPLETED] TEST KILLING 
+ * 
+ * 8- [COMPLETED] KILL SOCKET WHEN TEMP AND LUX ARE DEAD
+ * 
+ * 9- [COMPLETED] ADD USR LEDS
+ * 				L--> CREATED GPIO_PINs.h/.c 
+ * 
+ * 10- [] 
  *
  *****************************************************************************************
  * MAIN THREAD                                                                           *
@@ -67,8 +79,12 @@ uint8_t Socket_State = Socket_Offline;
  * 3- [COMPLETED] IMPLEMENT METHOD TO CLEANLY EXIT WHEN REQUESTED (MAKE CHILD EXITS PROPERLY
  * 		 THEN MAIN)
  *
- * 4- [] LOG ERROR INFORMATION AND INDICATE ERROR WITH BB USR LEDS (EG. MISSING SENSOR)
- *
+ * 4- [COMPLETED] LOG ERROR INFORMATION AND INDICATE ERROR WITH BB USR LEDS (EG. MISSING SENSOR)
+ * 				|--> USR0 LED ON => Error in Logging pThread
+ * 				|--> USR1 LED ON => Error in Socket pThread
+ * 				|--> USR2 LED ON => Error in Temp pThread
+ * 				L--> USR3 LED ON => Error in Lux pThread
+ * 
  * 5- [COMPLETED] CREATE MY OWN TIME GET FUNCTION
  * 				L--> FOUND IN My_Time .h/.c
  *
@@ -114,7 +130,9 @@ uint8_t Socket_State = Socket_Offline;
  *
  * 13- [COMPLETED] HANDLE INITS OF OTHER THREAD TO LOGGING THREAD
  *
- * 14- []
+ * 14- [] NEED TO FIND A WAY TO WAIT UNTIL ALL MESSAGES ARE READ BEFORE KILLING
+ * 
+ * 15- [] 
  *
  *
  *****************************************************************************************
@@ -149,16 +167,19 @@ uint8_t Socket_State = Socket_Offline;
  *
 #########################################################################################*/
 
-
+/* This function handles all our signals coming in. 
+ * In addition, it handles the retries done for both the Temp and Lux sensors, 
+ * After 10 attempts to reconnect with the sensor, if it does not succeed, the thread 
+ * will be killed */
 void signal_function(int value)
 {
-	if(value == SIGVTALRM)
+	if(value == SIGVTALRM	)
 	{
 			if(Socket_State == Socket_Online)
 			{
 //				pthread_mutex_lock(&lock_var);
 				AliveThreads |= SOCKET_ALIVE;
-//				pthread_mutex_unlock(&lock_var);
+//				pthread_mutex_unlock(&lock_vaecho 1 > valuer);
 			}
 			Counter += 1;
 			if(Counter == Counter_Threshold)
@@ -168,13 +189,13 @@ void signal_function(int value)
 					{
 							Temp_Error_Retry -= 1;
 							if(close(temp_file_des))		Log_error(Main,"Closing the Temperature I2C File", errno, LOGGING_AND_LOCAL);
-							SendToThreadQ(Main, Logging, "INFO", "\nTrying to get the Temperature Sensor Online... Calling TempThread_Init()\n");
+							SendToThreadQ(Main, Logging, "INFO", "Trying to get the Temperature Sensor Online... Calling TempThread_Init()");
 							if(TempThread_Init())		Log_error(Main,"Attempt to get the Temperature Sensor Online Failed... Exiting TempThread_Init()", errno, LOGGING_AND_LOCAL);
 							else
 							{
 								Temp_Error_Retry = Temp_No_Retry;
 								Temp_Sensor_State = Sensor_Online;
-								SendToThreadQ(Main, Logging, "INFO", "\nTemperature Sensor is Now Online...\n");
+								SendToThreadQ(Main, Logging, "INFO", "Temperature Sensor is Now Online...");
 							}
 					}
 
@@ -182,13 +203,13 @@ void signal_function(int value)
 					{
 							Lux_Error_Retry -= 1;
 							if(close(lux_file_des))		Log_error(Main,"Closing the Lux I2C File", errno, LOGGING_AND_LOCAL);
-							SendToThreadQ(Main, Logging, "INFO", "\nTrying to get the Lux Sensor Online... Calling LuxThread_Init()\n");
+							SendToThreadQ(Main, Logging, "INFO", "Trying to get the Lux Sensor Online... Calling LuxThread_Init()");
 							if(LuxThread_Init())		Log_error(Main,"Attempt to get the Lux Sensor Online Failed... Exiting LuxThread_Init()", errno, LOGGING_AND_LOCAL);
 							else
 							{
 								Lux_Error_Retry = Lux_No_Retry;
 								Lux_Sensor_State = Sensor_Online;
-								SendToThreadQ(Main, Logging, "INFO", "\nLux Sensor is Now Online...\n");
+								SendToThreadQ(Main, Logging, "INFO", "Lux Sensor is Now Online...");
 							}
 					}
 			}
@@ -281,8 +302,20 @@ int main(int argc, char *argv[])
 		Log_error(Main, "pthread_mutex_init()", errno, LOCAL_ONLY);
 		return -1;
 	}
-
-
+	
+	
+	/* Init LEDs */
+	Init_PIN_Output(USR0_PORT, USR0_PIN);
+	Init_PIN_Output(USR1_PORT, USR1_PIN);
+	Init_PIN_Output(USR2_PORT, USR2_PIN);
+	Init_PIN_Output(USR3_PORT, USR3_PIN);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 0);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 0);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 0);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 0);
+	
+	
 	/* Create the needed pThreads */
 	pthread_t Log_pThread, Socket_pThread, Temp_pThread, Lux_pThread;
 
@@ -291,6 +324,7 @@ int main(int argc, char *argv[])
 	if(pthread_create(&Log_pThread, NULL, &LoggingThread, (void *)&args) != 0)
 	{
 		Log_error(Main, "Logging pthread_create()", errno, LOCAL_ONLY);
+		PIN_Set_Value(USR0_PORT, USR0_PIN, 1);
 	}
 	else
 	{
@@ -305,17 +339,20 @@ int main(int argc, char *argv[])
 	if(pthread_create(&Socket_pThread, NULL, &SocketThread, NULL) != 0)
 	{
 		Log_error(Main, "Socket pthread_create()", errno, LOGGING_AND_LOCAL);
+		PIN_Set_Value(USR1_PORT, USR1_PIN, 1);
 	}
 	else
 	{
 		printf("[%lf] Main pThread SUCCESS: Created Socket Thread!\n\n", GetCurrentTime());
 	}
-		sleep(2);
+	
+	sleep(2);
 
 	/* Create Temp pThread */
 	if(pthread_create(&Temp_pThread, NULL, &TempThread, NULL) != 0)
 	{
 		Log_error(Main, "Temp pthread_create()", errno, LOGGING_AND_LOCAL);
+		PIN_Set_Value(USR2_PORT, USR2_PIN, 1);
 	}
 	else
 	{
@@ -328,6 +365,7 @@ int main(int argc, char *argv[])
 	if(pthread_create(&Lux_pThread, NULL, &LuxThread, NULL) != 0)
 	{
 		Log_error(Main, "Lux pthread_create()", errno, LOGGING_AND_LOCAL);
+		PIN_Set_Value(USR3_PORT, USR3_PIN, 1);
 	}
 	else
 	{
@@ -355,45 +393,115 @@ int main(int argc, char *argv[])
 		/* Check Logging pThread */
 		if(CurrentAlive & LOGGING_ALIVE)
 		{
-		//	SendToThreadQ(Main, Logging, "INFO", "Logging pThread is alive");
-			printf("[%lf] Main pThread(INFO): Logging pThread is alive\n\n", GetCurrentTime());
+			if(LogKillSafe == 0)
+			{
+				printf("[%lf] Main pThread(INFO): Logging pThread is alive\n\n", GetCurrentTime());
+			}
+			else
+			{
+				SendToThreadQ(Main, Logging, "INFO", "Logging pThread is alive");
+			}
 		}
 		else
 		{
 			Log_error(Main, "Logging pThread is not alive", 42, LOCAL_ONLY);
+			PIN_Set_Value(USR0_PORT, USR0_PIN, 1);
 		}
 
 		/* Check Socket pThread */
 		if(CurrentAlive & SOCKET_ALIVE)
 		{
-			printf("[%lf] Main pThread(INFO): Socket pThread is alive\n\n", GetCurrentTime());
+			if(LogKillSafe == 0)
+			{
+				printf("[%lf] Main pThread(INFO): Socket pThread is alive\n\n", GetCurrentTime());
+			}
+			else
+			{
+				SendToThreadQ(Main, Logging, "INFO", "Socket pThread is alive");
+			}
 		}
 		else
 		{
-			Log_error(Main, "Socket pThread is not alive", 42, LOCAL_ONLY);
+			/* This if decides weather logging is alive to log to it or just stdout */
+			if(LogKillSafe == 0)
+			{
+				Log_error(Main, "Socket pThread is not alive", 42, LOCAL_ONLY);
+			}
+			else
+			{
+				Log_error(Main, "Socket pThread is not alive", 42, LOGGING_AND_LOCAL);
+			}
+			
+			/* Turn LED ON */
+			PIN_Set_Value(USR1_PORT, USR1_PIN, 1);
 		}
 
 		/* Check Temp pThread */
 		if(CurrentAlive & TEMP_ALIVE)
 		{
-			printf("[%lf] Main pThread(INFO): Temp pThread is alive\n\n", GetCurrentTime());
+			if(LogKillSafe == 0)
+			{
+				printf("[%lf] Main pThread(INFO): Temp pThread is alive\n\n", GetCurrentTime());
+			}
+			else
+			{
+				SendToThreadQ(Main, Logging, "INFO", "Temp pThread is alive");
+			}
 		}
 		else
 		{
-			Log_error(Main, "Temp pThread is not alive", 42, LOCAL_ONLY);
+			/* This if decides weather logging is alive to log to it or just stdout */
+			if(LogKillSafe == 0)
+			{
+				Log_error(Main, "Temp pThread is not alive", 42, LOCAL_ONLY);
+			}
+			else
+			{
+				Log_error(Main, "Temp pThread is not alive", 42, LOGGING_AND_LOCAL);
+			}
+			
+			/* Turn LED ON */
+			PIN_Set_Value(USR2_PORT, USR2_PIN, 1);
+		
 		}
 
 		/* Check Lux pThread */
 		if(CurrentAlive & LUX_ALIVE)
 		{
-			printf("[%lf] Main pThread(INFO): Lux pThread is alive\n\n", GetCurrentTime());
+			if(LogKillSafe == 0)
+			{
+				printf("[%lf] Main pThread(INFO): Lux pThread is alive\n\n", GetCurrentTime());
+			}
+			else
+			{
+				SendToThreadQ(Main, Logging, "INFO", "Lux pThread is alive");
+			}
 		}
 		else
 		{
-			Log_error(Main, "Lux pThread is not alive", 42, LOCAL_ONLY);
+			/* This if decides weather logging is alive to log to it or just stdout */
+			if(LogKillSafe == 0)
+			{
+				Log_error(Main, "Lux pThread is not alive", 42, LOCAL_ONLY);
+			}
+			else
+			{
+				Log_error(Main, "Lux pThread is not alive", 42, LOGGING_AND_LOCAL);
+			}
+			
+			/* Turn LED ON */
+			PIN_Set_Value(USR3_PORT, USR3_PIN, 1);
+			
 		}
-
-		/* Check again after 10 secs */
+		
+		/* If the Temp and Lux threads were killed, kill the Socket thread as well */
+		if(LogKillSafe <= 1)
+		{
+			Socket_State = Socket_Offline;
+			if(kill_socket_init())        printf("\nSocket killing failed\n");
+		}
+		
+		/* Check again after defined secs */
 		sleep(Alive_Testing_Interval);
 	}
 
@@ -404,4 +512,45 @@ int main(int argc, char *argv[])
 	pthread_join(Socket_pThread, NULL);
 	pthread_join(Temp_pThread, NULL);
 	pthread_join(Lux_pThread, NULL);
+	
+	/* Exit animation */
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 1);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 0);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 0);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 0);
+	
+	sleep(1);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 0);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 1);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 0);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 0);
+	
+	sleep(1);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 0);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 0);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 1);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 0);
+	
+	sleep(1);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 0);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 0);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 0);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 1);
+	
+	sleep(1);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 1);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 1);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 1);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 1);
+	
+	sleep(1);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 0);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 0);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 0);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 0);
 }

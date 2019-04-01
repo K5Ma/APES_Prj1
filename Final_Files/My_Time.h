@@ -1,10 +1,9 @@
 /*
- * My_Time.h
- *
- *      Author: Khalid AlAwadhi
- *      Spring 2019
- */
-
+*	File: My_Time.h
+*	Purpose: The header file contains a simple function that gets the time
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
 #ifndef MY_TIME_H_
 #define MY_TIME_H_
 

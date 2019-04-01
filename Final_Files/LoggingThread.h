@@ -2,6 +2,7 @@
 *		File: LoggingThread.h
 *		Purpose: The header file containing functionalities and thread of Logger
 *		Owners: Poorn Mehta & Khalid AlAwadhi
+*		Spring 2019
 */
 
 #ifndef LOGGINGTHREAD_H_

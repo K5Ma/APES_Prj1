@@ -107,7 +107,7 @@ uint8_t custom_test_lux_config(void)
 				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
-		SendToThreadQ(Lux, Logging, "INFO", "\nPower ON Test Completed Successfully\n");
+		SendToThreadQ(Lux, Logging, "INFO", "Power ON Test Completed Successfully");
 
 		// Setting High Gain and High Integration Time, and Verifying the same
 		if(custom_lux_reg_write(Lux_Timing_Reg, Lux_Set_Gain_High(Lux_High_Integration_Time)))
@@ -128,7 +128,7 @@ uint8_t custom_test_lux_config(void)
 				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
-		SendToThreadQ(Lux, Logging, "INFO", "\nGain and Integration Time Test Completed Successfully\n");
+		SendToThreadQ(Lux, Logging, "INFO", "Gain and Integration Time Test Completed Successfully");
 
 		//Testing Interrupt Control Register with Test Data 0x0F
 		if(custom_lux_reg_write(Lux_Intrp_Ctrl_Reg, Lux_Interrupt_Test_Data))
@@ -149,7 +149,7 @@ uint8_t custom_test_lux_config(void)
 				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
-		SendToThreadQ(Lux, Logging, "INFO", "\nInterrupt Control Register Test Completed Successfully\n");
+		SendToThreadQ(Lux, Logging, "INFO", "Interrupt Control Register Test Completed Successfully");
 		// Reverting back
 		if(custom_lux_reg_write(Lux_Intrp_Ctrl_Reg, 0))
 		{
@@ -194,7 +194,7 @@ uint8_t custom_test_lux_config(void)
 				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
-		SendToThreadQ(Lux, Logging, "INFO", "\nInterrupt Threshold TLow Test Completed Successfully\n");
+		SendToThreadQ(Lux, Logging, "INFO", "Interrupt Threshold TLow Test Completed Successfully");
 
 		// Writing THigh
 		lux_data_write[0] = Lux_Command_Word_Data(Lux_ThrHigh_Low_Reg);
@@ -229,7 +229,7 @@ uint8_t custom_test_lux_config(void)
 				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
-		SendToThreadQ(Lux, Logging, "INFO", "\nInterrupt Threshold THigh Test Completed Successfully\n");
+		SendToThreadQ(Lux, Logging, "INFO", "Interrupt Threshold THigh Test Completed Successfully");
 
 		// Reading ID Register for testing part and revision number
 		if(custom_lux_reg_read(Lux_ID_Reg, &lux_reg_return))
@@ -245,7 +245,7 @@ uint8_t custom_test_lux_config(void)
 				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
-		SendToThreadQ(Lux, Logging, "INFO", "\nID Register Test Succeeded\n");
+		SendToThreadQ(Lux, Logging, "INFO", "ID Register Test Succeeded");
 
 		return 0;
 }
@@ -407,7 +407,7 @@ void * LuxThread(void * args)
 
 				if(resp)
 				{
-						Log_error(Lux, "\nError while Reading Lux\n", ENOMSG, LOGGING_AND_LOCAL);
+						Log_error(Lux, "Error while Reading Lux", ENOMSG, LOGGING_AND_LOCAL);
 						Lux_Error_Retry = Lux_Max_Retries;
 						Lux_Sensor_State = Sensor_Offline;
 				}
@@ -487,7 +487,7 @@ uint8_t LuxThread_Init(void)
 		sprintf(Text, "Lux Thread successfully created! TID: %ld", syscall(SYS_gettid));
 		SendToThreadQ(Lux, Logging, "INFO", Text);
 		pthread_mutex_lock(&lock);
-		if(custom_lux_init() == 0)	SendToThreadQ(Lux, Logging, "INFO", "\nLux Sensor Initiliazed Successfully\n");
+		if(custom_lux_init() == 0)	SendToThreadQ(Lux, Logging, "INFO", "Lux Sensor Initiliazed Successfully");
 		else
 		{
 				Log_error(Lux, "Lux Sensor Initialization... Exiting", ENOMSG, LOGGING_AND_LOCAL);
@@ -495,7 +495,7 @@ uint8_t LuxThread_Init(void)
 				return 1;
 		}
 		// BIST for Lux Sensor
-		if(custom_test_lux_config() == 0)		SendToThreadQ(Lux, Logging, "INFO", "\nLux Sensor Built-in-self-Test Passed Successfully\n");
+		if(custom_test_lux_config() == 0)		SendToThreadQ(Lux, Logging, "INFO", "Lux Sensor Built-in-self-Test Passed Successfully");
 		else
 		{
 				Log_error(Lux, "Lux Sensor Built-in-self-Test... Exiting", ENOMSG, LOGGING_AND_LOCAL);
@@ -504,7 +504,7 @@ uint8_t LuxThread_Init(void)
 		}
 
 		pthread_mutex_unlock(&lock);
-		SendToThreadQ(Lux, Logging, "INFO", "\nStarting Normal Operation\n");
+		SendToThreadQ(Lux, Logging, "INFO", "Starting Normal Operation");
 
 		return 0;
 }

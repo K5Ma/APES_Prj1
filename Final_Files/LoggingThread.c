@@ -2,6 +2,7 @@
 *		File: LoggingThread.c
 *		Purpose: The source file containing functionalities and thread of Logger
 *		Owners: Poorn Mehta & Khalid AlAwadhi
+*		Spring 2019
 */
 
 #include "LoggingThread.h"
@@ -9,7 +10,7 @@
 #include "My_Time.h"
 #include "POSIX_Qs.h"
 
-pthread_mutex_t lock;
+pthread_mutex_t lock_var;
 
 sig_atomic_t flag;
 uint8_t LogKillSafe;
@@ -58,9 +59,9 @@ void * LoggingThread(void * args)
 			LogFile_Log(Arguments->LogFile_Path, &MsgRecv);
 
 			/* Set alive bit */
-			pthread_mutex_lock(&lock);
+			pthread_mutex_lock(&lock_var);
 			AliveThreads |= LOGGING_ALIVE;
-			pthread_mutex_unlock(&lock);
+			pthread_mutex_unlock(&lock_var);
 		}
 	}
 
@@ -68,9 +69,9 @@ void * LoggingThread(void * args)
 	/* the other pThreads terminated successfully, we must now kill the Logging Thread */
 	printf("[%lf] Logging pThread(INFO): No other threads are alive - Killing Logging Thread\n\n", GetCurrentTime());
 
-	pthread_mutex_lock(&lock);
+	pthread_mutex_lock(&lock_var);
 	AliveThreads &= ~LOGGING_ALIVE;
-	pthread_mutex_unlock(&lock);
+	pthread_mutex_unlock(&lock_var);
 
 	if(mq_unlink(LOGGING_QUEUE) != 0)
 	{

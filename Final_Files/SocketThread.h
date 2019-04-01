@@ -1,8 +1,8 @@
 /*
-*		File: SocketThread.h
-*		Purpose: The header file containing functionalities and thread of Socket
-*		Owners: Poorn Mehta & Khalid AlAwadhi
-*		Last Modified: 3/28/2019
+*	File: SocketThread.h
+*	Purpose: The header file containing functionalities and thread of Socket
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
 */
 
 #ifndef SOCKETTHREAD_H_

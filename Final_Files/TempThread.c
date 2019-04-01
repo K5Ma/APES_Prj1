@@ -2,7 +2,7 @@
 *		File: TempThread.c
 *		Purpose: The source file containing functionalities and thread of Temperature Sensor(TMP102)
 *		Owners: Poorn Mehta & Khalid AlAwadhi
-*		Last Modified: 3/28/2019
+*		Spring 2019
 */
 
 #include "TempThread.h"
@@ -101,7 +101,7 @@ uint8_t custom_set_temp_thresholds(void)
 					Log_error(Temp, "THigh Setup", ENOMSG, LOGGING_AND_LOCAL);
 					return 1;
 		}
-		sprintf(local_text, "\nTHigh Set at %d deg C Successfully\n", Temp_High_Threshold);
+		sprintf(local_text, "THigh Set at %d deg C Successfully", Temp_High_Threshold);
 		SendToThreadQ(Temp, Logging, "INFO", local_text);
 
 		// Writing TLow Register
@@ -122,7 +122,7 @@ uint8_t custom_set_temp_thresholds(void)
 				Log_error(Temp, "TLow Setup", ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
-		sprintf(local_text, "\nTLow Set at %d deg C Successfully\n", Temp_Low_Threshold);
+		sprintf(local_text, "TLow Set at %d deg C Successfully", Temp_Low_Threshold);
 		SendToThreadQ(Temp, Logging, "INFO", local_text);
 
 		return 0;
@@ -153,7 +153,7 @@ uint8_t custom_test_temp_config(void)
 				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
-		SendToThreadQ(Temp, Logging, "INFO", "\nDefault Temp Config Check Succeeded\n");
+		SendToThreadQ(Temp, Logging, "INFO", "Default Temp Config Check Succeeded");
 
 		//Setting Shutdown Mode to ON
 		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Shutdown_On))
@@ -218,7 +218,7 @@ uint8_t custom_test_temp_config(void)
 				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
-		SendToThreadQ(Temp, Logging, "INFO", "\nFault Bits Test Succeeded\n");
+		SendToThreadQ(Temp, Logging, "INFO", "Fault Bits Test Succeeded");
 
 		//Setting Extended Mode to ON
 		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Extended_Set))
@@ -261,7 +261,7 @@ uint8_t custom_test_temp_config(void)
 				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
-		SendToThreadQ(Temp, Logging, "INFO", "\nExtended Mode Set & Clear Test Succeeded\n");
+		SendToThreadQ(Temp, Logging, "INFO", "Extended Mode Set & Clear Test Succeeded");
 
 		//Setting up Conversion Rate
 		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Conversion_Test))
@@ -283,7 +283,7 @@ uint8_t custom_test_temp_config(void)
 				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
 				return 1;
 		}
-		SendToThreadQ(Temp, Logging, "INFO", "\nConversion Rate Test Succeeded\n");
+		SendToThreadQ(Temp, Logging, "INFO", "Conversion Rate Test Succeeded");
 
 		return 0;
 }
@@ -493,7 +493,7 @@ uint8_t TempThread_Init(void)
 		SendToThreadQ(Temp, Logging, "INFO", Text);
 
 		pthread_mutex_lock(&lock);
-		if(custom_temp_init() == 0)		SendToThreadQ(Temp, Logging, "INFO", "\nTemperature Sensor Initiliazed Successfully\n");
+		if(custom_temp_init() == 0)		SendToThreadQ(Temp, Logging, "INFO", "Temperature Sensor Initiliazed Successfully");
 		else
 		{
 				Log_error(Temp, "Temperature Sensor Initialization... Exiting", ENOMSG, LOGGING_AND_LOCAL);
@@ -502,7 +502,7 @@ uint8_t TempThread_Init(void)
 		}
 
 		// Resetting Config (To prevent shutdown from previously failed bootup)
-		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Config_Default_1) == 0)			SendToThreadQ(Temp, Logging, "INFO", "\nTemperature Sensor Resetted Successfully\n");
+		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Config_Default_1) == 0)			SendToThreadQ(Temp, Logging, "INFO", "Temperature Sensor Resetted Successfully");
 		else
 		{
 				Log_error(Temp, "Temperature Sensor Reset... Exiting", ENOMSG, LOGGING_AND_LOCAL);
@@ -511,7 +511,7 @@ uint8_t TempThread_Init(void)
 		}
 
 		// Setting thresholds
-		if(custom_set_temp_thresholds() == 0)		SendToThreadQ(Temp, Logging, "INFO", "\nTemperature Sensor Thresholds Set Successfully\n");
+		if(custom_set_temp_thresholds() == 0)		SendToThreadQ(Temp, Logging, "INFO", "Temperature Sensor Thresholds Set Successfully");
 		else
 		{
 				Log_error(Temp, "Temperature Sensor Thresholds... Exiting", ENOMSG, LOGGING_AND_LOCAL);
@@ -520,7 +520,7 @@ uint8_t TempThread_Init(void)
 		}
 
 		// BIST for Temp Sensor
-		if(custom_test_temp_config() == 0)		SendToThreadQ(Temp, Logging, "INFO", "\nTemperature Sensor Built-in-self-Test Passed Successfully\n");
+		if(custom_test_temp_config() == 0)		SendToThreadQ(Temp, Logging, "INFO", "Temperature Sensor Built-in-self-Test Passed Successfully");
 		else
 		{
 				Log_error(Temp, "Temperature Sensor Built-in-self-Test... Exiting", ENOMSG, LOGGING_AND_LOCAL);
@@ -529,7 +529,7 @@ uint8_t TempThread_Init(void)
 		}
 
 		// Resetting Config
-		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Config_Default_1) == 0)			SendToThreadQ(Temp, Logging, "INFO", "\nTemperature Sensor Resetted Successfully\n");
+		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Config_Default_1) == 0)			SendToThreadQ(Temp, Logging, "INFO", "Temperature Sensor Resetted Successfully");
 		else
 		{
 				Log_error(Temp, "Temperature Sensor Reset... Exiting", ENOMSG, LOGGING_AND_LOCAL);
@@ -539,7 +539,7 @@ uint8_t TempThread_Init(void)
 
 		pthread_mutex_unlock(&lock);
 
-		SendToThreadQ(Temp, Logging, "INFO", "\nStarting Normal Operation\n");
+		SendToThreadQ(Temp, Logging, "INFO", "Starting Normal Operation");
 
 		return 0;
 }

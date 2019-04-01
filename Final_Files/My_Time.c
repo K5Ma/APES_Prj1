@@ -1,3 +1,10 @@
+/*
+*	File: My_Time.c
+*	Purpose: The source file contains a simple function that gets the time
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
+
 #include "My_Time.h"
 #include <sys/time.h>
 #include <stdio.h>

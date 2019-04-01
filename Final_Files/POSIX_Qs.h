@@ -1,9 +1,9 @@
 /*
- * POSIX_Qs.h
- *
- *      Author: Khalid AlAwadhi
- *      Spring 2019
- */
+*	File: POSIX_Qs.h
+*	Purpose: This header file has functions that handles IPC between pThreads
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
 #ifndef POSIX_QS_H_
 #define POSIX_QS_H_
 

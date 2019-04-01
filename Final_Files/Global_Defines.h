@@ -3,6 +3,7 @@
 *	File: Global_Defines.h
 *	Purpose: main header file of the APES Project 1
 *	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
 */
 
 #ifndef GLOBAL_DEFINES_H_
@@ -135,14 +136,29 @@ typedef struct Pthread_ArgsStruct
  
  
 /***************************************
- *  Alive Checking Defines:
- *  (Used in Main pThread)
+ *  Alive Checking Defines:            *
+ *  (Used in Main pThread)             *
  ***************************************/
 #define LOGGING_ALIVE 				0b00000001
 #define SOCKET_ALIVE 				0b00000010
 #define TEMP_ALIVE 					0b00000100
 #define LUX_ALIVE 					0b00001000
 
+
+/***************************************
+ *  LED Defines                        *
+ ***************************************/
+#define USR0_PORT					1
+#define USR0_PIN					21
+
+#define USR1_PORT					1
+#define USR1_PIN					22
+
+#define USR2_PORT					1
+#define USR2_PIN					23
+
+#define USR3_PORT					1
+#define USR3_PIN					24
 
 /***************************************
  *  Poorn Defines                      *

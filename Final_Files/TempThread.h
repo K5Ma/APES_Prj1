@@ -2,6 +2,7 @@
 *		File: TempThread.h
 *		Purpose: The header file containing functionalities and thread of Temperature Sensor(TMP102)
 *		Owners: Poorn Mehta & Khalid AlAwadhi
+*		Spring 2019
 */
 
 #ifndef TEMPTHREAD_H_

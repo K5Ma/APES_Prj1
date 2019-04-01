@@ -1,3 +1,9 @@
+/*
+*	File: POSIX_Qs.c
+*	Purpose: This source file has functions that handles IPC between pThreads
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
 #include <mqueue.h>
 #include <stdio.h>
 #include <string.h>
