@@ -35,10 +35,6 @@ uint8_t Lux_Sensor_State = Sensor_Offline;
 uint8_t Socket_State = Socket_Offline;
 
 
-/*
- * LAST WORKING ON:
- */
-
 /*########################################################################################
  #                                    TO-DO:                                             #
  #########################################################################################
@@ -66,8 +62,7 @@ uint8_t Socket_State = Socket_Offline;
  * 9- [COMPLETED] ADD USR LEDS
  * 				L--> CREATED GPIO_PINs.h/.c 
  * 
- * 10- [] 
- *
+ * 
  *****************************************************************************************
  * MAIN THREAD                                                                           *
  *****************************************************************************************
@@ -93,8 +88,6 @@ uint8_t Socket_State = Socket_Offline;
  * 7- [COMPLETED] DISPLAY THREAD IDS AT START-UP
  *
  * 8- [SCRAPPED] KILL ONLY SPECIFIED THREADS
- *
- * 9- []
  *
  *
  *****************************************************************************************
@@ -132,8 +125,6 @@ uint8_t Socket_State = Socket_Offline;
  *
  * 14- [] NEED TO FIND A WAY TO WAIT UNTIL ALL MESSAGES ARE READ BEFORE KILLING
  * 
- * 15- [] 
- *
  *
  *****************************************************************************************
  * SOCKET THREAD                                                                         *
@@ -141,9 +132,7 @@ uint8_t Socket_State = Socket_Offline;
  * 1- [POORN HANDLED IT] CREATE THE INTERNAL STRUCTURE OF THE SOCKET QUEUE
  *
  * 2- [COMPLETED] ADD POORN CODE
- *
- * 3- []
- *
+ * 
  *
  *****************************************************************************************
  * TEMP THREAD                                                                           *
@@ -151,9 +140,7 @@ uint8_t Socket_State = Socket_Offline;
  * 1- [COMPLETED] INIT THIS THREAD
  *
  * 2- [COMPLETED] ADD POORN CODE
- *
- * 3- []
- *
+ * 
  *
  *****************************************************************************************
  * LUX THREAD                                                                            *
@@ -161,9 +148,7 @@ uint8_t Socket_State = Socket_Offline;
  * 1- [COMPLETED] INIT THIS THREAD
  *
  * 2- [COMPLETED] ADD POORN CODE
- *
- * 3- []
- *
+ * 
  *
 #########################################################################################*/
 

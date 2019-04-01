@@ -114,7 +114,7 @@ void LogFile_Init(char* LogFilePath)
 	char* Line4 = "*       *insert cool name here*       *\n";
 	char* Line5 = "*                                     *\n";
 	char* Line6 = "*  By: Khalid AlAwadhi | Poorn Mehta  *\n";
-	char* Line7 = "*                              v1.7   *\n";
+	char* Line7 = "*                         v1.8(final) *\n";
 	char* Line8 = "***************************************\n\n";
 
 	fprintf(MyFileP, Line1, GetCurrentTime(), syscall(SYS_gettid));

@@ -1,0 +1,3166 @@
+/*
+*		File: LuxThread.h
+*		Purpose: The header file containing functionalities and thread of Light Sensor(APDS9301)
+*		Owners: Poorn Mehta & Khalid AlAwadhi
+*/
+
+#ifndef LUXTHREAD_H_
+#define LUXTHREAD_H_
+
+#include "Global_Defines.h"
+
+// Address of light sensor
+#define Lux_Addr	0x39
+
+#define Lux_Max_Retries			10
+#define Lux_No_Retry				0
+
+#define Lux_State_Night			0x01
+#define Lux_State_Day				0x02
+
+#define Lux_Night_Level			100
+
+// Internal register addresses
+#define Lux_Control_Reg					0x00
+#define Lux_Timing_Reg					0x01
+#define Lux_ThrLow_Low_Reg			0x02
+#define Lux_ThrLow_High_Reg			0x03
+#define Lux_ThrHigh_Low_Reg			0x04
+#define Lux_ThrHigh_High_Reg		0x05
+#define Lux_Intrp_Ctrl_Reg			0x06
+#define Lux_ID_Reg							0x0A
+#define Lux_Data0_Low						0x0C
+#define Lux_Data0_High					0x0D
+#define Lux_Data1_Low						0x0E
+#define Lux_Data1_High					0x0F
+
+// Reserved internal register addresses
+#define Lux_Res_Reg1						0x07
+#define Lux_Res_Reg2						0x08
+#define Lux_Res_Reg3						0x09
+#define Lux_Res_Reg4						0x0B
+
+// ALL Macros returs 0 on success and 1 on failure
+
+// Defines and macros for gain and integration time settings
+#define Lux_Integration_Pos			0
+#define Lux_Integration_Mask		(3 << Lux_Integration_Pos)
+#define Lux_Low_Integration_Time		(0 << Lux_Integration_Pos)		// 13.7ms
+#define Lux_Test_Low_Int_Time(x)		((x & Lux_Integration_Mask) >> Lux_Integration_Pos) == Lux_Low_Integration_Time ? 0 : 1
+#define Lux_Med_Integration_Time		(1 << Lux_Integration_Pos)		// 101ms
+#define Lux_Test_Med_Int_Time(x)		((x & Lux_Integration_Mask) >> Lux_Integration_Pos) == Lux_Med_Integration_Time ? 0 : 1
+#define Lux_High_Integration_Time		(2 << Lux_Integration_Pos)		// 402ms
+#define Lux_Test_High_Int_Time(x)		((x & Lux_Integration_Mask) >> Lux_Integration_Pos) == Lux_High_Integration_Time ? 0 : 1
+
+#define Lux_Gain_Pos					4
+#define Lux_Gain_Mask					(1 << Lux_Gain_Pos)
+#define Lux_Set_Gain_Low(x)				x &	~(Lux_Gain_Mask)
+#define Lux_Test_Gain_Low(x)			((x &	Lux_Gain_Mask) >> Lux_Gain_Pos) == 0 ? 0 : 1
+#define Lux_Set_Gain_High(x)				x |	Lux_Gain_Mask
+#define Lux_Test_Gain_High(x)			((x &	Lux_Gain_Mask) >> Lux_Gain_Pos) == 1 ? 0 : 1
+
+// Defines and macros for interrupt controller manipulation
+#define Lux_Interrupt_Test_Data			0x1F		// Turning on Level Interrupt as well as checking N config (from datasheet)
+#define	Lux_Interrupt_Control_Mask		0x1F
+#define Lux_Test_Intrp_Ctrl_Data(x)		(x & Lux_Interrupt_Control_Mask) == Lux_Interrupt_Test_Data ? 0 : 1
+
+// Defines and macros for interrupt threshold registers manipulation
+#define Lux_ThrLow_Low_Test_Data			0x05
+#define Lux_ThrLow_High_Test_Data			0x0A
+#define Lux_ThrHigh_Low_Test_Data			0x0F
+#define Lux_ThrHigh_High_Test_Data		0xF0
+#define Lux_Test_ThrLow_Low(x)				x == Lux_ThrLow_Low_Test_Data ? 0 : 1
+#define Lux_Test_ThrLow_High(x)				x == Lux_ThrLow_High_Test_Data ? 0 : 1
+#define Lux_Test_ThrHigh_Low(x)				x == Lux_ThrHigh_Low_Test_Data ? 0 : 1
+#define Lux_Test_ThrHigh_High(x)				x == Lux_ThrHigh_High_Test_Data ? 0 : 1
+
+// Defines and macros for verifying ID register of the sensor
+#define Lux_Part_No				5				// Fixed value, from datasheet
+#define Lux_Part_No_Pos		4
+#define Lux_Part_No_Mask	(Lux_Part_No << Lux_Part_No_Pos)
+#define Lux_Test_Part_No(x)		((x & Lux_Part_No_Mask) >> Lux_Part_No_Pos) == Lux_Part_No ? 0 : 1
+
+//Macro that uses write() API for writing to I2C bus, returns 0 on success, 1 on failure
+#define generic_write_lux_reg(t_val, t_bytes)				(write(lux_file_des, t_val, t_bytes)) == t_bytes ? 0 : 1
+
+//Macro that uses read() API for reading from I2C bus, returns 0 on success, 1 on failure
+#define generic_read_lux_reg(t_val, t_bytes)				(read(lux_file_des, t_val, t_bytes)) == t_bytes ? 0 : 1
+
+// Defines and macros for using command register with high flexibility
+#define Lux_Command_Bit_Pos			7
+#define Lux_Command_Reg_Mask		(1 << Lux_Command_Bit_Pos)
+#define Lux_Command_Address_Mask		(0x0F)
+#define Lux_Command_Reg_Data(x)		((x & Lux_Command_Address_Mask) | Lux_Command_Reg_Mask)
+#define Lux_Word_Mode_Bit_Pos		5
+#define Lux_Word_Mode_Mask		Lux_Command_Reg_Mask | (1 << Lux_Word_Mode_Bit_Pos)
+#define Lux_Command_Word_Data(x)		((x & Lux_Command_Address_Mask) | Lux_Word_Mode_Mask)
+//Macro to write to command register
+#define write_reg_cmd(x)															(generic_write_lux_reg(x, 1)) == 0 ? 0 : 1
+
+//Macro to write to any other internal register, after writing to command register
+#define lux_write_reg(x, t_bytes)															(generic_write_lux_reg(x, t_bytes)) == 0 ? 0 : 1
+
+//Macro to read from any internal register, after writing to command register
+#define lux_read_reg(x, t_bytes)															(generic_read_lux_reg(x, t_bytes)) == 0 ? 0 : 1
+
+// Macros and defines for turning ON the power to the sensor
+#define Lux_Control_Power_ON		0x03
+#define Lux_Control_Pos					0
+#define Lux_Control_Mask				((Lux_Control_Power_ON) << Lux_Control_Pos)
+#define Lux_Test_Control_Power(x)		(x & Lux_Control_Mask) == Lux_Control_Power_ON ? 0 : 1
+
+// Function prototypes
+uint8_t custom_lux_reg_write(uint8_t r_addr, uint8_t r_val);
+uint8_t custom_lux_reg_read(uint8_t r_addr, uint8_t *r_val);
+uint8_t custom_test_lux_config(void);
+uint8_t custom_lux_init(void);
+uint8_t get_lux(float *l_data);
+
+/**************************************************************************************************************
+ * USAGE: This function contains all what the lux pthread will do.
+ *
+ * PARAMETERS:
+ *            - NONE
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void * LuxThread(void * args);
+
+
+/**************************************************************************************************************
+ * USAGE: This function will be called initially when the Lux Thread is first initialized.
+ *
+ * PARAMETERS:
+ *            - NONE
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+uint8_t LuxThread_Init(void);
+
+
+#endif /* LUXTHREAD_H_ */
+/*
+*		File: LuxThread.c
+*		Purpose: The source file containing functionalities and thread of Light Sensor(APDS9301)
+*		Owners: Poorn Mehta & Khalid AlAwadhi
+*/
+
+#include "LuxThread.h"
+//#include "Global_Defines.h"
+#include "POSIX_Qs.h"
+
+
+pthread_mutex_t lock;
+
+sig_atomic_t flag;
+uint8_t LogKillSafe;
+uint8_t AliveThreads;
+
+//Initializing global variable - this will contain I2C bus's file descriptor
+int lux_file_des;
+
+uint8_t Lux_Error_Retry;
+
+uint8_t Lux_Sensor_State;
+
+uint8_t Lux_Warning = Lux_State_Day;
+
+/*
+*		Function to write to any internal register of Light Sensor
+*		Returns 1 on failure, 0 on success
+*		First Parameter is Internal Address of the Register
+*		Second Parameter is the value to be written
+*/
+uint8_t custom_lux_reg_write(uint8_t r_addr, uint8_t r_val)
+{
+		static uint8_t lux_data_write = 0;
+		lux_data_write = Lux_Command_Reg_Data(r_addr);
+
+		if((r_addr == Lux_Res_Reg1) || (r_addr == Lux_Res_Reg2) || (r_addr == Lux_Res_Reg3) || (r_addr == Lux_Res_Reg4))		// Checking whether the passed register address is valid and writeable or not
+		{
+				Log_error(Lux, "Invalid Register Address Supplied (Lux Sensor)", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+
+		if(write_reg_cmd(&lux_data_write))		// Writing to command register first
+		{
+				Log_error(Lux, "write_reg_cmd", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		if(lux_write_reg(&r_val, 1))		// Writing to the actual register
+		{
+				Log_error(Lux, "lux_write_reg", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		return 0;
+}
+
+/*
+*		Function to read from any internal register of Light Sensor
+*		Returns 1 on failure, 0 on success
+*		First Parameter is Internal Address of the Register
+*		Second Parameter is the pointer to destination variable
+*/
+uint8_t custom_lux_reg_read(uint8_t r_addr, uint8_t *r_val)
+{
+		static uint8_t lux_data_write = 0;
+		lux_data_write = Lux_Command_Reg_Data(r_addr);
+
+		if(write_reg_cmd(&lux_data_write))		// Writing to command register
+		{
+				Log_error(Lux, "write_reg_cmd", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		if(lux_read_reg(r_val, 1))		// Reading the data, and storing in the pointer through macro
+		{
+				Log_error(Lux, "lux_read_reg", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		return 0;
+}
+
+/*
+*		Function to test all settings of Temperature Sensor through manipulation of various registers
+*		Returns 1 on failure, 0 on success
+*		No Parameters
+*/
+uint8_t custom_test_lux_config(void)
+{
+		static uint8_t lux_reg_return;
+		static char local_text[150];
+
+		// Powering ON the Sensor by writing 0x03 to Control Register
+		if(custom_lux_reg_write(Lux_Control_Reg, Lux_Control_Power_ON))
+		{
+				Log_error(Lux, "Write: Lux_Control_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Reading back Control Register
+		if(custom_lux_reg_read(Lux_Control_Reg, &lux_reg_return))
+		{
+				Log_error(Lux, "Read: Lux_Control_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Verifying value 0x03
+		if(Lux_Test_Control_Power(lux_reg_return))
+		{
+				sprintf(local_text, "Test: Power ON - Got %x Expected %x",(lux_reg_return & Lux_Control_Mask), Lux_Control_Power_ON);
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		SendToThreadQ(Lux, Logging, "INFO", "Power ON Test Completed Successfully");
+
+		// Setting High Gain and High Integration Time, and Verifying the same
+		if(custom_lux_reg_write(Lux_Timing_Reg, Lux_Set_Gain_High(Lux_High_Integration_Time)))
+		{
+				Log_error(Lux, "Write: Lux_Timing_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Reading back Timing Register
+		if(custom_lux_reg_read(Lux_Timing_Reg, &lux_reg_return))
+		{
+				Log_error(Lux, "Read: Lux_Timing_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Verifying values
+		if((Lux_Test_High_Int_Time(lux_reg_return)) || (Lux_Test_Gain_High(lux_reg_return)))
+		{
+				sprintf(local_text, "Test: Gain and Integration Time - Got %x Expected %x",lux_reg_return, (Lux_High_Integration_Time | Lux_Gain_Mask));
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		SendToThreadQ(Lux, Logging, "INFO", "Gain and Integration Time Test Completed Successfully");
+
+		//Testing Interrupt Control Register with Test Data 0x0F
+		if(custom_lux_reg_write(Lux_Intrp_Ctrl_Reg, Lux_Interrupt_Test_Data))
+		{
+				Log_error(Lux, "Write: Lux_Intrp_Ctrl_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Reading back Interrupt Control Register
+		if(custom_lux_reg_read(Lux_Intrp_Ctrl_Reg, &lux_reg_return))
+		{
+				Log_error(Lux, "Read: Lux_Intrp_Ctrl_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Verifying values
+		if(Lux_Test_Intrp_Ctrl_Data(lux_reg_return))
+		{
+				sprintf(local_text, "Test: Interrupt Control Register - Got %x Expected %x",(lux_reg_return & Lux_Interrupt_Control_Mask), Lux_Interrupt_Test_Data);
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		SendToThreadQ(Lux, Logging, "INFO", "Interrupt Control Register Test Completed Successfully");
+		// Reverting back
+		if(custom_lux_reg_write(Lux_Intrp_Ctrl_Reg, 0))
+		{
+				Log_error(Lux, "Write: Lux_Intrp_Ctrl_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+
+		// Interrupt Thresholds - Low and High Test with predefined random data
+		// Using Word Mode
+		static uint8_t lux_data_write[2] = {0};
+
+		// Writing TLow
+		lux_data_write[0] = Lux_Command_Word_Data(Lux_ThrLow_Low_Reg);
+		if(write_reg_cmd(&lux_data_write[0]))		// Writing to command register first
+		{
+				Log_error(Lux, "write_reg_cmd", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		lux_data_write[0] = Lux_ThrLow_Low_Test_Data;
+		lux_data_write[1] = Lux_ThrLow_High_Test_Data;
+		if(lux_write_reg(&lux_data_write[0], 2))
+		{
+				Log_error(Lux, "lux_write_reg", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Reading TLow
+		lux_data_write[0] = Lux_Command_Word_Data(Lux_ThrLow_Low_Reg);
+		if(write_reg_cmd(&lux_data_write[0]))
+		{
+				Log_error(Lux, "write_reg_cmd", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		if(lux_read_reg(&lux_data_write[0], 2))
+		{
+				Log_error(Lux, "lux_read_reg", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Verifying TLow
+		if((Lux_Test_ThrLow_Low(lux_data_write[0])) || (Lux_Test_ThrLow_High(lux_data_write[1])))
+		{
+				sprintf(local_text, "Test: Interrupt Threshold TLow - Got %x & %x Expected %x & %x",lux_data_write[0], lux_data_write[1], Lux_ThrLow_Low_Test_Data, Lux_ThrLow_High_Test_Data);
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		SendToThreadQ(Lux, Logging, "INFO", "Interrupt Threshold TLow Test Completed Successfully");
+
+		// Writing THigh
+		lux_data_write[0] = Lux_Command_Word_Data(Lux_ThrHigh_Low_Reg);
+		if(write_reg_cmd(&lux_data_write[0]))
+		{
+				Log_error(Lux, "write_reg_cmd", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		lux_data_write[0] = Lux_ThrHigh_Low_Test_Data;
+		lux_data_write[1] = Lux_ThrHigh_High_Test_Data;
+		if(lux_write_reg(&lux_data_write[0], 2))
+		{
+				Log_error(Lux, "lux_write_reg", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Reading THigh
+		lux_data_write[0] = Lux_Command_Word_Data(Lux_ThrHigh_Low_Reg);
+		if(write_reg_cmd(&lux_data_write[0]))
+		{
+				Log_error(Lux, "write_reg_cmd", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		if(lux_read_reg(&lux_data_write[0], 2))
+		{
+				Log_error(Lux, "lux_read_reg", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Verifying THigh
+		if((Lux_Test_ThrHigh_Low(lux_data_write[0])) || (Lux_Test_ThrHigh_High(lux_data_write[1])))
+		{
+				sprintf(local_text, "Test: Interrupt Threshold THigh - Got %x & %x Expected %x & %x",lux_data_write[0], lux_data_write[1], Lux_ThrHigh_Low_Test_Data, Lux_ThrHigh_High_Test_Data);
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		SendToThreadQ(Lux, Logging, "INFO", "Interrupt Threshold THigh Test Completed Successfully");
+
+		// Reading ID Register for testing part and revision number
+		if(custom_lux_reg_read(Lux_ID_Reg, &lux_reg_return))
+		{
+				Log_error(Lux, "Read: Lux_ID_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Verifying values (part number)
+		if(Lux_Test_Part_No(lux_reg_return))
+		{
+				printf("\nLux ID Register Register Test Failed %x\n", lux_reg_return);
+				sprintf(local_text, "Test: Interrupt Threshold THigh - Got %x Expected %x",((lux_reg_return & Lux_Part_No_Mask) >> Lux_Part_No_Pos), Lux_Part_No);
+				Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		SendToThreadQ(Lux, Logging, "INFO", "ID Register Test Succeeded");
+
+		return 0;
+}
+
+/*
+*		Function to initialize light sensor
+*		Returns 1 on failure, 0 on success
+*		No Parameters
+*/
+uint8_t custom_lux_init(void)
+{
+		lux_file_des = open(I2C_BUS, O_RDWR);
+		if(lux_file_des == -1)
+		{
+				Log_error(Lux, "open(): I2C Bus", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		if(ioctl(lux_file_des, I2C_SLAVE, Lux_Addr) == -1)
+		{
+				Log_error(Lux, "ioctl(): I2C Bus", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		return 0;
+}
+
+/*
+*		Function to read light level in lumens
+*		Returns 1 on failure, 0 on success
+*		First Parameter is the pointer to destination variable(float)
+*/
+uint8_t get_lux(float *l_data)
+{
+		static float lux_ch0 = 0;
+		static float lux_ch1 = 0;
+		static float ratio = 0;
+
+		// Using Word Mode
+		static uint8_t lux_data_write[2] = {0};
+
+		// The following two steps - repeatedly turning on power, and setting gain & timing, aren't
+		// absolutely necessary - but sometimes the sensors gives out 0 lux reading without these
+
+		// Powering ON the Sensor by writing 0x03 to Control Register
+		if(custom_lux_reg_write(Lux_Control_Reg, Lux_Control_Power_ON))
+		{
+				Log_error(Lux, "Write: Lux_Control_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+
+		// Setting High Gain and High Integration Time
+		if(custom_lux_reg_write(Lux_Timing_Reg, Lux_Set_Gain_High(Lux_High_Integration_Time)))
+		{
+				Log_error(Lux, "Write: Lux_Timing_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+
+		// Reading Ch0
+		lux_data_write[0] = Lux_Command_Word_Data(Lux_Data0_Low);
+		if(write_reg_cmd(&lux_data_write[0]))
+		{
+				Log_error(Lux, "write_reg_cmd", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		if(lux_read_reg(&lux_data_write[0], 2))
+		{
+				Log_error(Lux, "lux_read_reg", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		lux_ch0 = (float)((lux_data_write[1] << 8) | lux_data_write[0]);
+
+		// Reading Ch1
+		lux_data_write[0] = Lux_Command_Word_Data(Lux_Data1_Low);
+		if(write_reg_cmd(&lux_data_write[0]))
+		{
+				Log_error(Lux, "write_reg_cmd", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		if(lux_read_reg(&lux_data_write[0], 2))
+		{
+				Log_error(Lux, "lux_read_reg", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		lux_ch1 = (float)((lux_data_write[1] << 8) | lux_data_write[0]);
+
+		ratio = (lux_ch1 / lux_ch0);
+
+		// Calculation is Based on Datasheet
+		if((ratio > 0) && (ratio <= 0.5))		*l_data = (0.0304 * lux_ch0) - (0.062 * lux_ch0 * pow(ratio, 1.4));
+		else if((ratio > 0.5) && (ratio <= 0.61))		*l_data = (0.0224 * lux_ch0) - (0.031 * lux_ch1);
+		else if((ratio > 0.61) && (ratio <= 0.80))		*l_data = (0.0128 * lux_ch0) - (0.0153 * lux_ch1);
+		else if((ratio > 0.80) && (ratio <= 1.30))		*l_data = (0.00146 * lux_ch0) - (0.00112 * lux_ch1);
+		else		*l_data = 0;
+
+		// Checking whether it's day or night
+		if(*l_data <= Lux_Night_Level)		Lux_Warning = Lux_State_Night;
+		else			Lux_Warning = Lux_State_Day;
+
+		return 0;
+}
+
+void * LuxThread(void * args)
+{
+	/* Init the Temp Thread */
+	uint8_t resp;
+	resp = LuxThread_Init();
+	if(resp)
+	{
+		Log_error(Lux, "Error while Initializing Lux Sensor", ENOMSG, LOGGING_AND_LOCAL);
+		Lux_Error_Retry = Lux_Max_Retries;
+		Lux_Sensor_State = Sensor_Offline;
+	}
+	else
+	{
+		Lux_Error_Retry = Lux_No_Retry;
+		Lux_Sensor_State = Sensor_Online;
+	}
+
+	/* Create the Lux Thread POSIX queue */
+	mqd_t MQ;											//Message queue descriptor
+
+	/* Initialize the queue attributes */
+	struct mq_attr attr;
+	attr.mq_flags = O_NONBLOCK;							/* Flags: 0 or O_NONBLOCK */
+	attr.mq_maxmsg = 10;								/* Max. # of messages on queue */
+	attr.mq_msgsize = sizeof(MsgStruct);				/* Max. message size (bytes) */
+	attr.mq_curmsgs = 0;								/* # of messages currently in queue */
+
+	/* Create the Lux Thread queue to get messages from other pThreads */
+	MQ = mq_open(LUX_QUEUE, O_CREAT | O_RDONLY | O_NONBLOCK | O_CLOEXEC, 0666, &attr);
+	if(MQ == (mqd_t) -1)
+	{
+		Log_error(Lux, "mq_open()", errno, LOGGING_AND_LOCAL);
+	}
+
+
+	// Reception Structure from Socket
+	MsgStruct MsgRecv;
+	// Variable to store lux level
+	float Lux_Value = 0;
+	// Static variable to contain error messages
+	static char local_text[150];
+
+	char Lux_Text[150];
+
+
+	while(1)
+	{
+		/* Set alive bit */
+		pthread_mutex_lock(&lock_var);
+		AliveThreads |= LUX_ALIVE;
+		pthread_mutex_unlock(&lock_var);
+
+		if((flag == Lux_Signal) && (Lux_Sensor_State == Sensor_Online))
+		{
+				flag = 0;
+				pthread_mutex_lock(&lock);
+				resp = get_lux(&Lux_Value);
+				pthread_mutex_unlock(&lock);
+
+				if(resp)
+				{
+						Log_error(Lux, "Error while Reading Lux", ENOMSG, LOGGING_AND_LOCAL);
+						Lux_Error_Retry = Lux_Max_Retries;
+						Lux_Sensor_State = Sensor_Offline;
+				}
+				else
+				{
+						sprintf(Lux_Text, "Lux is *%f*", Lux_Value);
+						SendToThreadQ(Lux, Logging, "INFO", Lux_Text);
+
+						// Check if there is a message from socket
+						int resp = mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL);
+						if(resp != -1)
+						{
+								if(resp == sizeof(MsgStruct))
+								{
+										if(strcmp("LX",MsgRecv.Msg) == 0)
+										{
+												sprintf(Lux_Text, "Lux is *%f*", Lux_Value);
+										}
+										SendToThreadQ(Lux, Socket, "INFO", Lux_Text);
+								}
+								else
+								{
+										sprintf(local_text, "From Socket Thread: Got %d Bytes Expected %d Bytes", resp, sizeof(MsgStruct));
+										Log_error(Lux, local_text, ENOMSG, LOGGING_AND_LOCAL);
+								}
+						}
+				}
+		}
+
+		/* Check for KILL signals */
+		else if((flag == SIGUSR1) || (flag == SIGUSR2) || ((Lux_Sensor_State == Sensor_Offline) && (Lux_Error_Retry == Lux_No_Retry)))
+		{
+			// Notifying user
+			if((flag == SIGUSR1) || (flag == SIGUSR2))		SendToThreadQ(Lux, Logging, "INFO", "User Signal Passed - Killing Lux Thread");
+			else		Log_error(Lux,"All Attempts to get the Lux Sensor Online Failed... Killing Lux Thread", ENOMSG, LOGGING_AND_LOCAL);
+
+			if(mq_unlink(LUX_QUEUE) != 0)
+			{
+				Log_error(Lux, "mq_unlink()", errno, LOGGING_AND_LOCAL);
+			}
+			else
+			{
+				SendToThreadQ(Lux, Logging, "INFO", "Successfully unlinked Lux queue!");
+			}
+
+			char TempTxt[150];
+			if(flag == SIGUSR1)
+			{
+				sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
+				SendToThreadQ(Lux, Logging, "INFO", TempTxt);
+			}
+			else if(flag == SIGUSR2)
+			{
+				sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
+				SendToThreadQ(Lux, Logging, "INFO", TempTxt);
+			}
+
+			/* Decrement the LogKillSafe and clear the alive bit */
+			pthread_mutex_lock(&lock_var);
+			LogKillSafe--;
+			AliveThreads &= ~LUX_ALIVE;
+			pthread_mutex_unlock(&lock_var);
+
+			SendToThreadQ(Lux, Logging, "INFO", "Lux Thread has terminated successfully and will now exit");
+
+			return 0;
+		}
+	}
+}
+
+
+
+uint8_t LuxThread_Init(void)
+{
+		char Text[60];
+
+		sprintf(Text, "Lux Thread successfully created! TID: %ld", syscall(SYS_gettid));
+		SendToThreadQ(Lux, Logging, "INFO", Text);
+		pthread_mutex_lock(&lock);
+		if(custom_lux_init() == 0)	SendToThreadQ(Lux, Logging, "INFO", "Lux Sensor Initiliazed Successfully");
+		else
+		{
+				Log_error(Lux, "Lux Sensor Initialization... Exiting", ENOMSG, LOGGING_AND_LOCAL);
+				pthread_mutex_unlock(&lock);
+				return 1;
+		}
+		// BIST for Lux Sensor
+		if(custom_test_lux_config() == 0)		SendToThreadQ(Lux, Logging, "INFO", "Lux Sensor Built-in-self-Test Passed Successfully");
+		else
+		{
+				Log_error(Lux, "Lux Sensor Built-in-self-Test... Exiting", ENOMSG, LOGGING_AND_LOCAL);
+				pthread_mutex_unlock(&lock);
+				return 1;
+		}
+
+		pthread_mutex_unlock(&lock);
+		SendToThreadQ(Lux, Logging, "INFO", "Starting Normal Operation");
+
+		return 0;
+}
+/*
+*	File: POSIX_Qs.h
+*	Purpose: This header file has functions that handles IPC between pThreads
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
+#ifndef POSIX_QS_H_
+#define POSIX_QS_H_
+
+#include "Global_Defines.h"
+
+
+/**************************************************************************************************************
+ * USAGE: This function will send a message to a chosen pThread based on the parameters. In addition, it has
+ *        error handling. 
+ *
+ * PARAMETERS:
+ *            - uint8_t Src => Source of the message (Look at Global_Defines.h Source Enums)
+ *            - uint8_t Dst => Destination of the message
+ *            - char* Log => The log level message
+ *            - char* Message => mesaage to send
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void SendToThreadQ(uint8_t Src, uint8_t Dst, char* Log, char* Message);
+
+
+
+/**************************************************************************************************************
+ * USAGE: This function will output UNIX errors alongside a message to either: send them to the logging thread, 
+ *        or just output to stdout, or both. This was created using a thread-safe error retrieval function.
+ *
+ * PARAMETERS:
+ *            - uint8_t Src => Source of the message (Look at Global_Defines.h Source Enums)
+ *            - char* Err_Msg => The message to display before the UNIX error
+ *            - int errnum => must be the 'errno' varible (need to include #include <errno.h>)
+ *            - uint8_t Mode => The below modes are already defined in Global_Defines.h
+ *                              0x01 = LOGGING_AND_LOCAL:   In this mode, the error message will be displayed to 
+ *                                                          the user in addition to sending the message to the
+ *                                                          Logging pThread.
+ * 
+ *                              0x02 = LOGGING_ONLY:        In this mode, the message will only be sent to the
+ *                                                          Logging pThread.
+ * 
+ *                              0x03 = LOCAL_ONLY(Default): In this mode, the error message will only be 
+ *                                                          displayed to user via stdout(printf).
+ * 
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void Log_error(uint8_t Src, char* Err_Msg, int errnum, uint8_t Mode);
+
+
+
+/**************************************************************************************************************
+ * [Deprecated]
+ * 
+ * USAGE: This function is used in Pthreads to check if an alive check message was sent from Main pThread.
+ *
+ * PARAMETERS:
+ *            - uint8_t Chosen_Dest => The pThread Main sent a message to
+ *            - MsgStruct* Msg2Check => The message received by the pThread to check. 
+ *
+ * RETURNS: TRUE => Message was an alive check from Main
+ *          FALSE => Message was NOT an alive check from Main
+ *
+ **************************************************************************************************************/
+bool Main_AliveCheck(uint8_t Chosen_Dest, MsgStruct* Msg2Check);
+
+
+
+/**************************************************************************************************************
+ * [Deprecated]
+ * 
+ * USAGE: This function is used in Main pThread to check if a response received is the correct response or not. 
+ *
+ * PARAMETERS:
+ *            - uint8_t Chosen_Dest => The pThread Main sent a message to
+ *            - MsgStruct* Msg2Check => The message received by the pThread to check. 
+ *
+ * RETURNS: TRUE => Chosen pThread got the message and is alive
+ *          FALSE => Chosen pThread did not respond to the Main alive check message 
+ *
+ **************************************************************************************************************/
+bool Main_AliveCheck_Resp(uint8_t Chosen_Dest, MsgStruct* Msg2Check);
+
+
+#endif /* POSIX_QS_H_ *//*
+*		File: SocketThread.c
+*		Purpose: The source file containing functionalities and thread of Socket
+*		Owners: Poorn Mehta & Khalid AlAwadhi
+*		Spring 2019
+*/
+
+#include "SocketThread.h"
+//#include "Global_Defines.h"
+#include "POSIX_Qs.h"
+
+uint8_t Temp_Warning;
+uint8_t Lux_Warning;
+uint8_t req_warning = 0;
+
+uint8_t Socket_State;
+
+// data structure
+typedef struct
+{
+  char str[150];
+  int num;
+}info;
+
+info info1, info2;
+info *p1 = &info1;
+info *p2 = &info2;
+
+int new_socket, custom_socket, cust_sock, info_in, info_out;
+char loglevel_sock[30], loglevel_q[30];
+
+pthread_mutex_t lock;
+
+sig_atomic_t flag;
+uint8_t LogKillSafe;
+uint8_t AliveThreads;
+
+
+void * SocketThread(void * args)
+{
+	/* Init the Socket Thread */
+	if(SocketThread_Init())
+	{
+		Log_error(Socket, "Socket Init Failed... Exiting Thread", ENOMSG, LOGGING_AND_LOCAL);
+		return 0;
+	}
+	else		SendToThreadQ(Socket, Logging, "INFO", "Socket Init Succeeded");
+
+	/* Create the Socket Thread POSIX queue */
+	mqd_t MQ;											//Message queue descriptor
+
+	/* Initialize the queue attributes */
+	struct mq_attr attr;
+	attr.mq_flags = 0;									/* Flags: 0 or O_NONBLOCK */
+	attr.mq_maxmsg = 10;								/* Max. # of messages on queue */
+	attr.mq_msgsize = sizeof(MsgStruct);				/* Max. message size (bytes) */
+	attr.mq_curmsgs = 0;								/* # of messages currently in queue */
+
+	/* Create the Socket Thread queue to get messages from other pThreads */
+	MQ = mq_open(SOCKET_QUEUE, O_CREAT | O_RDONLY | O_CLOEXEC, 0666, &attr);
+	if(MQ == (mqd_t) -1)
+	{
+		Log_error(Socket, "mq_open()", errno, LOGGING_AND_LOCAL);
+	}
+
+	MsgStruct MsgRecv;
+
+	while(1)
+	{
+		// Wait for signal
+		while((flag != SIGUSR1) && (flag != SIGUSR2))
+		{
+			/* Set alive bit */
+			Socket_State = Socket_Online;
+			pthread_mutex_lock(&lock_var);
+			AliveThreads |= SOCKET_ALIVE;
+			pthread_mutex_unlock(&lock_var);
+
+			custom_socket = accept(new_socket, (struct sockaddr *)0, 0);
+
+			if(custom_socket < 0)
+			{
+				Log_error(Socket, "Socket Accepting Failed accept()", errno, LOGGING_AND_LOCAL);
+			}
+			else
+			{
+				cust_sock = custom_socket;
+			}
+
+			   info_in = read(custom_socket,p2,sizeof(info));
+            if(info_in < 0)
+            {
+                Log_error(Socket, "Socket Reading Failed read()", errno, LOGGING_AND_LOCAL);
+            }
+
+            char Socket_Text[150];
+            sprintf(loglevel_sock, "INFO");
+
+            char Socket_Text_q[60];
+            sprintf(loglevel_q, "INFO");
+
+            if( strcmp("Exit", p2->str) == 0 )
+            {
+                sprintf(Socket_Text, "Socket Thread is Exiting");
+                SendToThreadQ(Socket, Logging, loglevel_sock, Socket_Text);
+//*************************************************************************************************************************88
+           //     SendToThreadQ(Socket, Logging, "INFO", "User Signal Passed - Killing Socket Thread");
+
+                if(mq_unlink(SOCKET_QUEUE) != 0)
+                {
+                        Log_error(Socket, "mq_unlink()", errno, LOGGING_AND_LOCAL);
+                }
+                else
+                {
+                    SendToThreadQ(Socket, Logging, "INFO", "Successfully unlinked Socket queue!");
+                }
+
+//                char TempTxt[150];
+//                if(flag == SIGUSR1)
+//                {
+//                    sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
+//                    SendToThreadQ(Socket, Logging, "INFO", TempTxt);
+//                }
+//                else
+//                {
+//                    sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
+//                    SendToThreadQ(Socket, Logging, "INFO", TempTxt);
+//                }
+
+				/* Decrement the LogKillSafe and clear the alive bit */
+				pthread_mutex_lock(&lock_var);
+				LogKillSafe--;
+				AliveThreads &= ~SOCKET_ALIVE;
+				pthread_mutex_unlock(&lock_var);
+
+                SendToThreadQ(Socket, Logging, "INFO", "Socket Thread has terminated successfully and will now exit");
+
+
+                return 0;
+//*************************************************************************************************************************88
+            }
+						else
+            {
+                if(strcmp("Temperature", p2->str) == 0)
+                {
+										req_warning =	Temp_Warning_Req;
+                    if(p2->num == Celsius)
+                    {
+                        sprintf(Socket_Text, "Client Requested Temperature in C");
+                        sprintf(Socket_Text_q, "TC");
+                    }
+                    else if(p2->num == Fahrenheit)
+                    {
+                        sprintf(Socket_Text, "Client Requested Temperature in F");
+                        sprintf(Socket_Text_q, "TF");
+                    }
+                    else if(p2->num == Kelvin)
+                    {
+                        sprintf(Socket_Text, "Client Requested Temperature in K");
+                        sprintf(Socket_Text_q, "TK");
+                    }
+                    else
+                    {
+                        sprintf(Socket_Text, "Client Requested Temperature in Invalid Parameter - Sending in C");
+                        sprintf(loglevel_sock, "WARNING");
+                        sprintf(Socket_Text_q, "TC");
+                    }
+
+                    SendToThreadQ(Socket, Temp, loglevel_q, Socket_Text_q);
+                }
+
+                else if(strcmp("Lux", p2->str) == 0)
+                {
+										req_warning =	Lux_Warning_Req;
+                    sprintf(Socket_Text, "Client Requested Lux");
+                    sprintf(Socket_Text_q, "LX");
+                    SendToThreadQ(Socket, Lux, loglevel_q, Socket_Text_q);
+                }
+
+                else
+                {
+                    sprintf(Socket_Text, "Invalid Client Request");
+                    sprintf(loglevel_sock, "ERROR");
+                }
+
+                SendToThreadQ(Socket, Logging, loglevel_sock, Socket_Text);
+
+
+                //SOCKET Q MUST WAIT FOR A RESPONSE, ELSE GIVE ERROR
+                struct timespec tm;
+                clock_gettime(CLOCK_REALTIME, &tm);
+                tm.tv_sec += 2;
+
+                int resp = mq_timedreceive(MQ, &MsgRecv, sizeof(MsgStruct), NULL, &tm);
+                if(resp == -1)
+                {
+                    Log_error(Socket, "mq_timedreceive()", errno, LOGGING_AND_LOCAL);
+                    p1->num = 0;
+                }
+                else if(resp < sizeof(MsgStruct))
+                {
+                    Log_error(Socket, "mq_timedreceive()", errno, LOGGING_AND_LOCAL);
+                    p1->num = 0;
+                }
+                else if(resp == sizeof(MsgStruct))
+                {
+                    sprintf(Socket_Text, "Got Response from Queue: %s", MsgRecv.Msg);
+                    strcpy(loglevel_sock, "INFO");
+                    strcpy(p1->str, MsgRecv.Msg);
+										if(req_warning == Temp_Warning_Req)		p1->num = Temp_Warning;
+										else if(req_warning == Lux_Warning_Req)		p1->num = Lux_Warning;
+										else		p1->num = 0;
+                    SendToThreadQ(Socket, Logging, loglevel_sock, Socket_Text);
+                }
+
+                // Have to do this since custom_socket is getting corrupted
+                custom_socket = cust_sock;
+                info_out = write(custom_socket,p1,sizeof(info));
+                if (info_out < 0)
+                {
+                    Log_error(Socket, "Socket Writing Failed write()", errno, LOGGING_AND_LOCAL);
+                }
+                else
+                {
+                    sprintf(Socket_Text, "Data sent Successfully to the Remote Client");
+                    strcpy(loglevel_sock, "INFO");
+                    SendToThreadQ(Socket, Logging, loglevel_sock, Socket_Text);
+                }
+            }
+        }
+    }
+}
+
+
+
+
+uint8_t SocketThread_Init(void)
+{
+		char Text[60];
+
+		sprintf(Text, "Socket Thread successfully created! TID: %ld", syscall(SYS_gettid));
+
+		SendToThreadQ(Socket, Logging, "INFO", Text);
+
+		struct sockaddr_in custom_server;
+
+		// socket init on server end
+		new_socket = socket(AF_INET, SOCK_STREAM, 0);
+		if(new_socket < 0)
+		{
+				Log_error(Socket, "Socket Creation Failed socket()", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+
+		custom_server.sin_family = AF_INET;
+		custom_server.sin_addr.s_addr = INADDR_ANY;
+		custom_server.sin_port = htons(PORT);
+
+		if(bind(new_socket, (struct sockaddr *)&custom_server, sizeof(custom_server)) < 0)
+		{
+				Log_error(Socket, "Socket Binding Failed bind()", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+
+		if(listen(new_socket, 5) < 0)
+		{
+				Log_error(Socket, "Socket Listening Failed listen()", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+
+		return 0;
+}
+
+uint8_t kill_socket_init(void)
+{
+
+    // data structure
+    typedef struct
+    {
+      char str[150];
+      int num;
+    }t_strct;
+
+    t_strct t_strct1;
+    t_strct *pt_strct1 = &t_strct1;
+
+    strcpy(pt_strct1->str, "Exit");
+    pt_strct1->num = 1;
+
+    int temp_sock, t_out;
+    struct sockaddr_in t_client;
+
+    // socket init on t_client end
+    temp_sock = socket(AF_INET, SOCK_STREAM, 0);
+    if(temp_sock < 0)
+    {
+		Log_error(Main, "Socket Creation Failed", errno, LOGGING_AND_LOCAL);
+        return 1;
+    }
+
+    t_client.sin_family = AF_INET;
+
+    if(inet_pton(AF_INET, "127.0.0.1", &t_client.sin_addr)<=0)
+    {
+		    Log_error(Main, "Invalid/Unsupported Target IP Address", errno, LOGGING_AND_LOCAL);
+		    return 1;
+    }
+
+    t_client.sin_port = htons(PORT);
+
+    if(connect(temp_sock, (struct sockaddr *)&t_client, sizeof(t_client)) < 0)
+    {
+		Log_error(Main, "Socket Connection Failed", errno, LOGGING_AND_LOCAL);
+        return 1;
+    }
+
+    t_out = write(temp_sock,pt_strct1,sizeof(t_strct));
+    if (t_out < 0)
+    {
+		Log_error(Main, "Socket Writing Failed", errno, LOGGING_AND_LOCAL);
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+*	File: Global_Defines.h
+*	Purpose: main header file of the APES Project 1
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
+
+#ifndef GLOBAL_DEFINES_H_
+#define GLOBAL_DEFINES_H_
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/time.h>
+#include <sys/ioctl.h>
+#include <sys/syscall.h>
+#include <sys/socket.h>
+#include <sys/wait.h>
+
+#include <netinet/in.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+
+#include <assert.h>
+#include <errno.h>
+
+#include <unistd.h>
+#include <string.h>
+#include <pthread.h>
+#include <signal.h>
+#include <malloc.h>
+
+#include <fcntl.h>
+#include <linux/i2c-dev.h>
+#include <math.h>
+#include <float.h>
+#include <complex.h>
+#include <time.h>
+#include <mqueue.h>
+
+
+
+/***************************************
+ *        Global Varibles            *
+ ***************************************/
+extern pthread_mutex_t lock, lock_var;
+
+extern int temp_file_des;
+extern int lux_file_des;
+extern uint8_t Temp_Error_Retry;
+extern uint8_t Lux_Error_Retry;
+extern uint8_t Temp_Sensor_State;
+extern uint8_t Lux_Sensor_State;
+extern uint8_t Temp_Warning;
+extern uint8_t Lux_Warning;
+
+extern uint8_t Socket_State;
+
+extern uint8_t Counter;
+
+extern sig_atomic_t flag;
+extern uint8_t LogKillSafe;
+extern uint8_t AliveThreads;
+
+
+
+
+/***************************************
+ *  This define is used to indicate    *
+ *  whether to print all logfiles to   *
+ *  stdout or not                      *
+ ***************************************/
+#define DEBUG_PRINTF 				1
+
+
+
+/***************************************
+ *  Thread Numbering Enum:             *
+ *  Used for source and destination    *   
+ ***************************************/
+typedef enum
+{
+	Main = 1,
+	Logging = 2,
+	Socket = 3,
+	Temp = 4,
+	Lux = 5
+} Sources;
+
+
+/***************************************
+ *        Message Structure            *
+ ***************************************/
+typedef struct MsgStruct 
+{
+	uint8_t Source;
+	uint8_t Dest;
+	char LogLevel[150];				//Expected values: INFO | WARNING | ERROR | CRITICAL
+	char Msg[150];
+} MsgStruct;
+
+
+/***************************************
+ *      pThread Argument Structure     *
+ ***************************************/
+typedef struct Pthread_ArgsStruct
+{
+    char LogFile_Path[100];			//Used to store the wanted logfile path
+}Pthread_ArgsStruct;
+
+
+
+/***************************************
+ *          POSIX Queues               *
+ ***************************************/
+#define MAIN_QUEUE					"/MAIN_POSIX_Q"
+#define LOGGING_QUEUE				"/LOGGING_POSIX_Q"
+#define SOCKET_QUEUE				"/SOCKET_POSIX_Q"
+#define TEMP_QUEUE					"/TEMP_POSIX_Q"
+#define LUX_QUEUE					"/LUX_POSIX_Q"
+
+
+
+/***************************************
+ *  Log_error() Function Parameters:   *
+ *        (found in POSIX_Qs.h)        *
+ ***************************************/
+#define LOGGING_AND_LOCAL			0x01
+#define LOGGING_ONLY				0x02
+#define LOCAL_ONLY					0x03 
+ 
+ 
+/***************************************
+ *  Alive Checking Defines:            *
+ *  (Used in Main pThread)             *
+ ***************************************/
+#define LOGGING_ALIVE 				0b00000001
+#define SOCKET_ALIVE 				0b00000010
+#define TEMP_ALIVE 					0b00000100
+#define LUX_ALIVE 					0b00001000
+
+
+/***************************************
+ *  LED Defines                        *
+ ***************************************/
+#define USR0_PORT					1
+#define USR0_PIN					21
+
+#define USR1_PORT					1
+#define USR1_PIN					22
+
+#define USR2_PORT					1
+#define USR2_PIN					23
+
+#define USR3_PORT					1
+#define USR3_PIN					24
+
+/***************************************
+ *  Poorn Defines                      *
+ ***************************************/
+#define Temperature_Signal			0xF0
+#define Lux_Signal					0xF1
+
+#define Celsius						1
+#define Fahrenheit					2
+#define Kelvin						3
+
+#define Sensor_Online		1
+#define Sensor_Offline	0
+
+#define PORT 						8080
+
+#define time_high 					0x02  //for 402ms
+#define time_med 					0x01  //for 101ms
+#define time_low 					0x00  //for 13ms
+
+#define gain 						0x10  //for maximum gain
+
+#define Socket_Online		1
+#define Socket_Offline	0
+
+#define Timer_Interval		250		// In ms
+#define Sensor_Retry_Period		5000		// In ms
+#define Counter_Threshold		(Sensor_Retry_Period / Timer_Interval)
+
+#define Alive_Testing_Interval		10		// In sec
+
+//Path of I2C Bus
+#define I2C_BUS		(char *)"/dev/i2c-2"
+
+void signal_function(int value);
+void sig_setup(void);
+
+
+#endif /* GLOBAL_DEFINES_H_ *//*
+*		File: LoggingThread.h
+*		Purpose: The header file containing functionalities and thread of Logger
+*		Owners: Poorn Mehta & Khalid AlAwadhi
+*		Spring 2019
+*/
+
+#ifndef LOGGINGTHREAD_H_
+#define LOGGINGTHREAD_H_
+
+#include "Global_Defines.h"
+
+
+/**************************************************************************************************************
+ * USAGE: This function contains all what the Logging pThread will do.
+ *
+ * PARAMETERS:
+ *            - NONE
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void * LoggingThread(void * args);
+
+
+
+/**************************************************************************************************************
+ * USAGE: This function will be called initially when the Logging Thread is first initialized.
+ *
+ * PARAMETERS:
+ *            - char* LogFilePath => Path to the log file
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void LogFile_Init(char* LogFilePath);
+
+
+
+/**************************************************************************************************************
+ * USAGE: This function will log messages received by the Logging Thread. It will decode the message and
+ *        specify the destination and source it came from and log it to a file.
+ *
+ * PARAMETERS:
+ *            - char* LogFilePath => Path to the log file
+ *            - MsgStruct* Message => The message structure to decode and log
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void LogFile_Log(char* LogFilePath, MsgStruct* Message);
+
+
+
+
+#endif /* LOGGINGTHREAD_H_ */
+/*
+*		File: TempThread.h
+*		Purpose: The header file containing functionalities and thread of Temperature Sensor(TMP102)
+*		Owners: Poorn Mehta & Khalid AlAwadhi
+*		Spring 2019
+*/
+
+#ifndef TEMPTHREAD_H_
+#define TEMPTHREAD_H_
+
+#include "Global_Defines.h"		// Contains all useful include files
+
+//I2C Address of the Sensor
+#define Temp_Addr		0x48
+
+#define Temp_Normal					0x00
+#define Temp_Warning_High		0x01
+#define Temp_Warning_Low		0x02
+
+#define Temp_Max_Retries			10
+#define Temp_No_Retry					0
+
+//Internal Addresses of different Registers
+#define Temp_Data_Reg			0x00
+#define Temp_Config_Reg		0x01
+#define Temp_TLow_Reg			0x02
+#define Temp_THigh_Reg		0x03
+
+//Default expected value of the Configuration Register
+//Both of the following are possibilities
+#define Temp_Config_Default_1		0x6080
+#define Temp_Config_Default_2		0x60A0
+
+//Macro that uses write() API for writing to I2C bus, returns 0 on success, 1 on failure
+#define generic_write_temp_reg(t_val, t_bytes)				(write(temp_file_des, t_val, t_bytes)) == t_bytes ? 0 : 1
+
+//Macro that uses read() API for reading from I2C bus, returns 0 on success, 1 on failure
+#define generic_read_temp_reg(t_val, t_bytes)				(read(temp_file_des, t_val, t_bytes)) == t_bytes ? 0 : 1
+
+//Macro to write to pointer register
+#define write_reg_ptr(x)															(generic_write_temp_reg(x, 1)) == 0 ? 0 : 1
+
+//Macro to write to any other internal register, after writing to pointer register
+#define temp_write_reg(x)															(generic_write_temp_reg(x, 3)) == 0 ? 0 : 1
+
+//Macro to read from any internal register, after writing to pointer register
+#define temp_read_reg(x)															(generic_read_temp_reg(x, 2)) == 0 ? 0 : 1
+
+//Shutdown Mode Defines and Macros
+#define Temp_Shutdown_Pos			8		// Position of the bit controlling Shutdown Mode
+#define Temp_Shutdown_Mask		(1 << Temp_Shutdown_Pos)	// Mask for multiple purposes
+#define Temp_Write_Shutdown_On		(Temp_Config_Default_1 | Temp_Shutdown_Mask)	// Writing 1 to the bit sets the mode ON
+#define Temp_Write_Shutdown_Off		(Temp_Config_Default_1 & (~Temp_Shutdown_Mask))		// Writing 0 to the bit sets the mode OFF
+#define Temp_Test_Shutdown_On(x)		((x & Temp_Shutdown_Mask) >> Temp_Shutdown_Pos) == 1 ? 0 : 1		// Macro that returns 0 on success (Shutdown mode is ON), 1 on failure
+#define Temp_Test_Shutdown_Off(x)		((x & Temp_Shutdown_Mask) >> Temp_Shutdown_Pos) == 0 ? 0 : 1		// Macro that returns 0 on success (Shutdown mode is OFF), 1 on failure
+
+//Fault Bits Defines and Macros
+#define Temp_Fault_Pos			11	// Position of the least significant fault bit
+#define Temp_Fault_Mask			(3 << Temp_Fault_Pos)		// Masks both fault bits
+#define Temp_Write_Fault_Test		(Temp_Config_Default_1 | Temp_Fault_Mask)	// Setting both bits 1 just for the sake of testing since this will flip the both bits from default
+#define Temp_Test_Fault(x)		((x & Temp_Fault_Mask) >> Temp_Fault_Pos) == 3 ? 0 : 1		// Macro that returns 0 on success (Fault Bits are Successfully set), 1 on failure
+
+//Extended Mode Defines and Macros
+#define Temp_Extended_Pos			4		// Position of the bit controlling Extended Mode
+#define Temp_Extended_Mask		(1 << Temp_Extended_Pos)	// Mask for multiple purposes
+#define Temp_Write_Extended_Set		(Temp_Config_Default_1 | Temp_Extended_Mask)	// Writing 1 to the bit sets the mode ON
+#define Temp_Write_Extended_Clear		(Temp_Config_Default_1 & (~Temp_Extended_Mask))		// Writing 0 to the bit sets the mode OFF
+#define Temp_Test_Extended_Set(x)		((x & Temp_Extended_Mask) >> Temp_Extended_Pos) == 1 ? 0 : 1	// Macro that returns 0 on success (Extended mode is Set), 1 on failure
+#define Temp_Test_Extended_Clear(x)		((x & Temp_Extended_Mask) >> Temp_Extended_Pos) == 0 ? 0 : 1	// Macro that returns 0 on success (Extended mode is Clear), 1 on failure
+
+//Conversion Rate	Defines and Macros
+#define Temp_Conversion_Pos			6		// Position of the least significant conversion rate bit
+#define Temp_Conversion_Mask			(3 << Temp_Conversion_Pos)		//Masks both conversion rate bits
+#define Temp_Write_Conversion_Test		(Temp_Config_Default_1 ^ Temp_Conversion_Mask)	// This will inverse both bits from default
+#define Temp_Test_Conversion(x)		((x & Temp_Conversion_Mask) >> Temp_Conversion_Pos) == 1 ? 0 : 1		// Macro that returns 0 on success (Conversion Rate Successfully set), 1 on failure
+
+#define Temp_High_Threshold		30		// Temperature in degree C, this defines the highest temperature crossing which - the alert pin will flip
+#define Temp_Low_Threshold		20		// Temperature in degree C, this defines the lowest temperature crossing which - the alert pin will flip
+
+//Function Prototypes
+uint8_t custom_temp_reg_write(uint8_t r_addr, uint16_t r_val);
+uint8_t custom_temp_reg_read(uint8_t r_addr, uint8_t *r_val);
+uint8_t custom_set_temp_thresholds(void);
+uint8_t custom_test_temp_config(void);
+uint8_t get_temp(float *t_data);
+uint8_t custom_temp_init(void);
+
+/**************************************************************************************************************
+ * USAGE: This function contains all what the temprature pthread will do.
+ *
+ * PARAMETERS:
+ *            - NONE
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void * TempThread(void * args);
+
+
+/**************************************************************************************************************
+ * USAGE: This function will be called initially when the Temp Thread is first initialized.
+ *
+ * PARAMETERS:
+ *            - NONE
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+uint8_t TempThread_Init(void);
+
+
+
+#endif /* TEMPTHREAD_H_ */
+/*
+*		File: TempThread.c
+*		Purpose: The source file containing functionalities and thread of Temperature Sensor(TMP102)
+*		Owners: Poorn Mehta & Khalid AlAwadhi
+*		Spring 2019
+*/
+
+#include "TempThread.h"
+//#include "Global_Defines.h"
+#include "POSIX_Qs.h"
+
+pthread_mutex_t lock;
+
+sig_atomic_t flag;
+uint8_t LogKillSafe;
+uint8_t AliveThreads;
+
+//Initializing global variable - this will contain I2C bus's file descriptor
+int temp_file_des;
+
+uint8_t Temp_Warning = Temp_Normal;
+uint8_t Temp_Error_Retry;
+uint8_t Temp_Sensor_State;
+
+/*
+*		Function to write to any internal register of Temperature Sensor
+*		Returns 1 on failure, 0 on success
+*		First Parameter is Internal Address of the Register
+*		Second Parameter is the value to be written (12bit, left justified)
+*/
+uint8_t custom_temp_reg_write(uint8_t r_addr, uint16_t r_val)
+{
+		static uint8_t r_arr[3];
+		r_arr[0] = r_addr;
+		r_arr[1] = r_val >> 8;
+		r_arr[2] = r_val & 0x00FF;
+		if((r_addr < 1) || (r_addr > 3))		// Checking whether the passed register address is valid and writeable or not
+		{
+				Log_error(Temp, "Invalid Register Address Supplied (Temp Sensor)", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		if(write_reg_ptr(&r_addr))		// Writing to pointer register first
+		{
+				Log_error(Temp, "write_reg_ptr", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		if(temp_write_reg(&r_arr))		// Writing to the actual register
+		{
+				Log_error(Temp, "temp_write_reg", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		return 0;
+}
+
+/*
+*		Function to read from any internal register of Temperature Sensor
+*		Returns 1 on failure, 0 on success
+*		First Parameter is Internal Address of the Register
+*		Second Parameter is the pointer to destination variable(12bit, left justified)
+*/
+uint8_t custom_temp_reg_read(uint8_t r_addr, uint8_t *r_val)
+{
+		if(write_reg_ptr(&r_addr))		// Writing to pointer register
+		{
+				Log_error(Temp, "write_reg_ptr", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		if(temp_read_reg(r_val))		// Reading the data, and storing in the pointer through macro
+		{
+				Log_error(Temp, "temp_read_reg", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		return 0;
+}
+
+/*
+*		Function to set temperature thresholds provided by defines in the header file
+*		Returns 1 on failure, 0 on success
+*		No Parameters
+*/
+uint8_t custom_set_temp_thresholds(void)
+{
+		static uint8_t temp_reg_return[2];
+		static char local_text[150];
+
+		// Writing THigh Register
+		if(custom_temp_reg_write(Temp_THigh_Reg, Temp_High_Threshold << 8))
+		{
+				Log_error(Temp, "Write: Temp_THigh_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Reading back THigh Register
+		if(custom_temp_reg_read(Temp_THigh_Reg, &temp_reg_return[0]))
+		{
+				Log_error(Temp, "Read: Temp_THigh_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Verifying THigh Register
+		if(temp_reg_return[0] != Temp_High_Threshold)
+		{
+					Log_error(Temp, "THigh Setup", ENOMSG, LOGGING_AND_LOCAL);
+					return 1;
+		}
+		sprintf(local_text, "THigh Set at %d deg C Successfully", Temp_High_Threshold);
+		SendToThreadQ(Temp, Logging, "INFO", local_text);
+
+		// Writing TLow Register
+		if(custom_temp_reg_write(Temp_TLow_Reg, Temp_Low_Threshold << 8))
+		{
+				Log_error(Temp, "Write: Temp_TLow_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Reading back TLow Register
+		if(custom_temp_reg_read(Temp_TLow_Reg, &temp_reg_return[0]))
+		{
+				Log_error(Temp, "Read: Temp_TLow_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		// Verifying TLow Register
+		if(temp_reg_return[0] != Temp_Low_Threshold)
+		{
+				Log_error(Temp, "TLow Setup", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		sprintf(local_text, "TLow Set at %d deg C Successfully", Temp_Low_Threshold);
+		SendToThreadQ(Temp, Logging, "INFO", local_text);
+
+		return 0;
+}
+
+/*
+*		Function to test all settings of Temperature Sensor through Configuration Register
+*		Returns 1 on failure, 0 on success
+*		No Parameters
+*/
+uint8_t custom_test_temp_config(void)
+{
+		static uint8_t temp_reg_return[2];
+		static uint16_t temp_config_return;
+		static char local_text[150];
+
+		//First Reading without Writing
+		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
+		{
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
+		//Verifying default value
+		if((temp_config_return != Temp_Config_Default_1) && (temp_config_return != Temp_Config_Default_2))
+		{
+				sprintf(local_text, "Test: Default Config - Got %x Expected %x or %x",temp_config_return, Temp_Config_Default_1, Temp_Config_Default_2);
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		SendToThreadQ(Temp, Logging, "INFO", "Default Temp Config Check Succeeded");
+
+		//Setting Shutdown Mode to ON
+		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Shutdown_On))
+		{
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		//Reading Shutdown Mode Status
+		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
+		{
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
+		//Verifying Shutdown Mode Setup
+		if(Temp_Test_Shutdown_On(temp_config_return))
+		{
+				sprintf(local_text, "Test: Shutdown Mode - Got %x Expected 1",((temp_config_return & Temp_Shutdown_Mask) >> Temp_Shutdown_Pos));
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+
+		//Setting Shutdown Mode to OFF
+		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Shutdown_Off))
+		{
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		//Reading Shutdown Mode Status
+		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
+		{
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
+		//Verifying Shutdown Mode Setup
+		if(Temp_Test_Shutdown_Off(temp_config_return))
+		{
+				sprintf(local_text, "Test: Shutdown Mode - Got %x Expected 0",((temp_config_return & Temp_Shutdown_Mask) >> Temp_Shutdown_Pos));
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+//		SendToThreadQ(Temp, Logging, "INFO", "\nShutdown Mode ON & OFF Test Succeeded\n");
+
+		//Fault Bits - Checking both bits by setting them to 1
+		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Fault_Test))
+		{
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		//Reading Fault Bits Status
+		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
+		{
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
+		//Verifying Fault Bits Setup
+		if(Temp_Test_Fault(temp_config_return))
+		{
+				sprintf(local_text, "Test: Fault Bits - Got %x Expected 3",((temp_config_return & Temp_Fault_Mask) >> Temp_Fault_Pos));
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		SendToThreadQ(Temp, Logging, "INFO", "Fault Bits Test Succeeded");
+
+		//Setting Extended Mode to ON
+		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Extended_Set))
+		{
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		//Reading Extended Mode Status
+		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
+		{
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
+		//Verifying Extended Mode Setup
+		if(Temp_Test_Extended_Set(temp_config_return))
+		{
+				sprintf(local_text, "Test: Extended Mode Set - Got %x Expected 1",((temp_config_return & Temp_Extended_Mask) >> Temp_Extended_Pos));
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+
+		//Setting Extended Mode to OFF
+	if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Extended_Clear))
+		{
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		//Reading Extended Mode Status
+		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
+		{
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
+		//Verifying Extended Mode Setup
+		if(Temp_Test_Extended_Clear(temp_config_return))
+		{
+				sprintf(local_text, "Test: Extended Mode Clear - Got %x Expected 0",((temp_config_return & Temp_Extended_Mask) >> Temp_Extended_Pos));
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		SendToThreadQ(Temp, Logging, "INFO", "Extended Mode Set & Clear Test Succeeded");
+
+		//Setting up Conversion Rate
+		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Write_Conversion_Test))
+		{
+				Log_error(Temp, "Write: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		//Reading Conversion Rate
+		if(custom_temp_reg_read(Temp_Config_Reg, &temp_reg_return[0]))
+		{
+				Log_error(Temp, "Read: Temp_Config_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		temp_config_return = (temp_reg_return[0] << 8) | temp_reg_return[1];
+		//Verifying Conversion Rate Setup
+		if(Temp_Test_Conversion(temp_config_return))
+		{
+				sprintf(local_text, "Test: Conversion Rate - Got %x Expected 0",((temp_config_return & Temp_Conversion_Mask) >> Temp_Conversion_Pos));
+				Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		SendToThreadQ(Temp, Logging, "INFO", "Conversion Rate Test Succeeded");
+
+		return 0;
+}
+
+/*
+*		Function to read temperature in deg C
+*		Returns 1 on failure, 0 on success
+*		First Parameter is the pointer to destination variable(float)
+*/
+uint8_t get_temp(float *t_data)
+{
+		static uint8_t temp_reg_return[2];
+		if(custom_temp_reg_read(Temp_Data_Reg, &temp_reg_return[0]))
+		{
+				Log_error(Temp, "Read: Temp_Data_Reg", ENOMSG, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		*t_data = ((temp_reg_return[0] << 8) | temp_reg_return[1]) >> 4;
+		*t_data *= 0.0625;
+
+		// Checking whether the temperature is below or above set temp Thresholds
+		if(*t_data < Temp_Low_Threshold)		Temp_Warning = Temp_Warning_Low;
+		else if(*t_data > Temp_High_Threshold)			Temp_Warning = Temp_Warning_High;
+		else		Temp_Warning = Temp_Normal;
+
+		return 0;
+}
+
+/*
+*		Function to initialize temperature sensor
+*		Returns 1 on failure, 0 on success
+*		No Parameters
+*/
+uint8_t custom_temp_init(void)
+{
+		temp_file_des = open(I2C_BUS, O_RDWR);
+		if(temp_file_des == -1)
+		{
+				Log_error(Temp, "open(): I2C Bus", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		if(ioctl(temp_file_des, I2C_SLAVE, Temp_Addr) == -1)
+		{
+				Log_error(Temp, "ioctl(): I2C Bus", errno, LOGGING_AND_LOCAL);
+				return 1;
+		}
+		return 0;
+}
+
+void * TempThread(void * args)
+{
+	/* Init the Temp Thread */
+	uint8_t resp;
+	resp = TempThread_Init();
+	if(resp)
+	{
+			Log_error(Temp, "Error while Initializing Temperature Sensor", ENOMSG, LOGGING_AND_LOCAL);
+			Temp_Error_Retry = Temp_Max_Retries;
+			Temp_Sensor_State = Sensor_Offline;
+	}
+	else
+	{
+			Temp_Error_Retry = Temp_No_Retry;
+			Temp_Sensor_State = Sensor_Online;
+	}
+
+	/* Create the Temp Thread POSIX queue */
+	mqd_t MQ;											//Message queue descriptor
+
+	/* Initialize the queue attributes */
+	struct mq_attr attr;
+	attr.mq_flags = O_NONBLOCK;							/* Flags: 0 or O_NONBLOCK */
+	attr.mq_maxmsg = 10;								/* Max. # of messages on queue */
+	attr.mq_msgsize = sizeof(MsgStruct);				/* Max. message size (bytes) */
+	attr.mq_curmsgs = 0;								/* # of messages currently in queue */
+
+
+	/* Create the Temp Thread queue to get messages from other pThreads */
+	MQ = mq_open(TEMP_QUEUE, O_CREAT | O_RDONLY | O_NONBLOCK | O_CLOEXEC, 0666, &attr);
+	if(MQ == (mqd_t) -1)
+	{
+		Log_error(Temp, "mq_open()", errno, LOGGING_AND_LOCAL);
+	}
+
+	// Init Para
+	uint8_t Temperature_Unit = Celsius;
+	// Reception Structure from Socket
+	MsgStruct MsgRecv;
+	// Variable to store temperature
+	float Temperature_C = 0;
+	// Static variable to contain error messages
+	static char local_text[150];
+
+	char Temperature_Text[150];
+
+	while(1)
+	{
+		/* Set alive bit */
+		pthread_mutex_lock(&lock_var);
+		AliveThreads |= TEMP_ALIVE;
+		pthread_mutex_unlock(&lock_var);
+
+		if((flag == Temperature_Signal) && (Temp_Sensor_State == Sensor_Online))
+		{
+				flag = 0;
+				pthread_mutex_lock(&lock);
+				resp = get_temp(&Temperature_C);
+				pthread_mutex_unlock(&lock);
+
+				if(resp)
+				{
+						Log_error(Temp, "Error while Reading Temperature", ENOMSG, LOGGING_AND_LOCAL);
+						Temp_Error_Retry = Temp_Max_Retries;
+						Temp_Sensor_State = Sensor_Offline;
+				}
+				else
+				{
+						float Temperature_F = (Temperature_C * 1.8) + 32;
+						float Temperature_K = Temperature_C + 273.15;
+
+						if(Temperature_Unit == Celsius)		sprintf(Temperature_Text, "Temperature is *%f* in C", Temperature_C);
+						else if(Temperature_Unit == Fahrenheit)		sprintf(Temperature_Text, "Temperature is *%f* in F", Temperature_F);
+						else if(Temperature_Unit == Kelvin)		sprintf(Temperature_Text, "Temperature is *%f* in K", Temperature_K);
+
+						SendToThreadQ(Temp, Logging, "INFO", Temperature_Text);
+
+						// Check if there is a message from socket
+						int resp = mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL);
+						if(resp != -1)
+						{
+								if(resp == sizeof(MsgStruct))
+								{
+										if(strcmp("TC",MsgRecv.Msg) == 0)
+										{
+												Temperature_Unit = Celsius;
+												sprintf(Temperature_Text, "Temperature is *%f* in C", Temperature_C);
+										}
+										else if(strcmp("TF",MsgRecv.Msg) == 0)
+										{
+												Temperature_Unit = Fahrenheit;
+												sprintf(Temperature_Text, "Temperature is *%f* in F", Temperature_F);
+										}
+										else if(strcmp("TK",MsgRecv.Msg) == 0)
+										{
+												Temperature_Unit = Kelvin;
+												sprintf(Temperature_Text, "Temperature is *%f* in K", Temperature_K);
+										}
+										SendToThreadQ(Temp, Socket, "INFO", Temperature_Text);
+								}
+								else
+								{
+										sprintf(local_text, "From Socket Thread: Got %d Bytes Expected %d Bytes", resp, sizeof(MsgStruct));
+										Log_error(Temp, local_text, ENOMSG, LOGGING_AND_LOCAL);
+								}
+						}
+				}
+		}
+
+		/* Check for KILL signals */
+		else if((flag == SIGUSR1) || (flag == SIGUSR2) || ((Temp_Sensor_State == Sensor_Offline) && (Temp_Error_Retry == Temp_No_Retry)))
+		{
+			if((flag == SIGUSR1) || (flag == SIGUSR2))		SendToThreadQ(Temp, Logging, "INFO", "User Signal Passed - Killing Temperature Thread");
+			else		Log_error(Temp,"All Attempts to get the Temperature Sensor Online Failed... Killing Temperature Thread", ENOMSG, LOGGING_AND_LOCAL);
+
+			if(mq_unlink(TEMP_QUEUE) != 0)
+			{
+				Log_error(Temp, "mq_unlink()", errno, LOGGING_AND_LOCAL);
+			}
+			else
+			{
+				SendToThreadQ(Temp, Logging, "INFO", "Successfully unlinked Temp queue!");
+			}
+
+			char TempTxt[150];
+			if(flag == SIGUSR1)
+			{
+				sprintf(TempTxt, "Exit Reason: User Signal 1 Received (%d)", flag);
+				SendToThreadQ(Temp, Logging, "INFO", TempTxt);
+			}
+			else if(flag == SIGUSR2)
+			{
+				sprintf(TempTxt, "Exit Reason: User Signal 2 Received (%d)", flag);
+				SendToThreadQ(Temp, Logging, "INFO", TempTxt);
+			}
+
+			/* Decrement the LogKillSafe and clear the alive bit */
+			pthread_mutex_lock(&lock_var);
+			LogKillSafe--;
+			AliveThreads &= ~TEMP_ALIVE;
+			pthread_mutex_unlock(&lock_var);
+
+			SendToThreadQ(Temp, Logging, "INFO", "Temp Thread has terminated successfully and will now exit");
+
+
+			return 0;
+		}
+	}
+}
+
+
+
+uint8_t TempThread_Init(void)
+{
+		char Text[60];
+
+		sprintf(Text, "Temp Thread successfully created! TID: %ld", syscall(SYS_gettid));
+		SendToThreadQ(Temp, Logging, "INFO", Text);
+
+		pthread_mutex_lock(&lock);
+		if(custom_temp_init() == 0)		SendToThreadQ(Temp, Logging, "INFO", "Temperature Sensor Initiliazed Successfully");
+		else
+		{
+				Log_error(Temp, "Temperature Sensor Initialization... Exiting", ENOMSG, LOGGING_AND_LOCAL);
+				pthread_mutex_unlock(&lock);
+				return 1;
+		}
+
+		// Resetting Config (To prevent shutdown from previously failed bootup)
+		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Config_Default_1) == 0)			SendToThreadQ(Temp, Logging, "INFO", "Temperature Sensor Resetted Successfully");
+		else
+		{
+				Log_error(Temp, "Temperature Sensor Reset... Exiting", ENOMSG, LOGGING_AND_LOCAL);
+				pthread_mutex_unlock(&lock);
+				return 1;
+		}
+
+		// Setting thresholds
+		if(custom_set_temp_thresholds() == 0)		SendToThreadQ(Temp, Logging, "INFO", "Temperature Sensor Thresholds Set Successfully");
+		else
+		{
+				Log_error(Temp, "Temperature Sensor Thresholds... Exiting", ENOMSG, LOGGING_AND_LOCAL);
+				pthread_mutex_unlock(&lock);
+				return 1;
+		}
+
+		// BIST for Temp Sensor
+		if(custom_test_temp_config() == 0)		SendToThreadQ(Temp, Logging, "INFO", "Temperature Sensor Built-in-self-Test Passed Successfully");
+		else
+		{
+				Log_error(Temp, "Temperature Sensor Built-in-self-Test... Exiting", ENOMSG, LOGGING_AND_LOCAL);
+				pthread_mutex_unlock(&lock);
+				return 1;
+		}
+
+		// Resetting Config
+		if(custom_temp_reg_write(Temp_Config_Reg, Temp_Config_Default_1) == 0)			SendToThreadQ(Temp, Logging, "INFO", "Temperature Sensor Resetted Successfully");
+		else
+		{
+				Log_error(Temp, "Temperature Sensor Reset... Exiting", ENOMSG, LOGGING_AND_LOCAL);
+				pthread_mutex_unlock(&lock);
+				return 1;
+		}
+
+		pthread_mutex_unlock(&lock);
+
+		SendToThreadQ(Temp, Logging, "INFO", "Starting Normal Operation");
+
+		return 0;
+}
+/*
+*	File: GPIO_PINs.c
+*	Purpose: This source file has functions that handle interacting with the BeagleBone Ports and PINs
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
+
+#include "GPIO_PINs.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+
+
+void Init_PIN_Output(uint8_t Port, uint8_t PIN)
+{
+	
+	/* Calculate the absolute PIN number */
+	uint8_t Abs_PIN = (32*(Port)) + (PIN);
+	
+	/* Executes terminal command within the program in order to access the 
+	 * BB PINs as the way to interact with them is through files */
+	/* Generate CMD */
+	char TerminalCMD[100];
+	sprintf(TerminalCMD, "cd ~/../sys/class/gpio && echo %u > export", Abs_PIN);
+
+	system(TerminalCMD);
+}
+
+
+
+void PIN_Set_Value(uint8_t Port, uint8_t PIN, bool Value)
+{
+	/* Calculate the absolute PIN number */
+	uint8_t Abs_PIN = (32*(Port)) + (PIN);
+	
+	/* Executes terminal command within the program in order to access the 
+	 * BB PINs as the way to interact with them is through files */
+	/* Generate CMDs */
+	char TerminalCMD[100];
+	
+	sprintf(TerminalCMD, "cd ~/../sys/class/gpio/gpio%u && echo out > direction", Abs_PIN);
+	system(TerminalCMD);
+	
+	sprintf(TerminalCMD, "cd ~/../sys/class/gpio/gpio%u  && echo %d > value", Abs_PIN, Value);
+	system(TerminalCMD);
+}/*
+*		File: main.c
+*		Purpose: main file of the APES Project 1 - 2019 
+*		Owners: Poorn Mehta & Khalid AlAwadhi
+*/
+
+#include "Global_Defines.h"
+#include "My_Time.h"
+#include "POSIX_Qs.h"
+#include "LoggingThread.h"
+#include "SocketThread.h"
+#include "TempThread.h"
+#include "LuxThread.h"
+#include "GPIO_PINs.h"
+
+
+/* Global Variables */
+pthread_t Log_pThread, Socket_pThread, Temp_pThread, Lux_pThread;
+
+pthread_mutex_t lock, lock_var;					//Used to lock and unlock critical sections in code
+sig_atomic_t flag = 0;			//This will indicate whether any valid user signal has been received or not
+uint8_t sig_sync = 0;					//Used to toggle in signal_function()
+uint8_t LogKillSafe = 3;		//Used when other threads are killed. They decrement this value which assures Logging pThread is killed last.
+uint8_t AliveThreads = 0x00;	//Used in Main and checked bitwise to see which pThreads are alive
+
+uint8_t Counter = 0;
+
+int temp_file_des = -1;
+int lux_file_des = -1;
+uint8_t Temp_Error_Retry = 0;
+uint8_t Lux_Error_Retry = 0;
+uint8_t Temp_Sensor_State = Sensor_Offline;
+uint8_t Lux_Sensor_State = Sensor_Offline;
+
+uint8_t Socket_State = Socket_Offline;
+
+
+/*########################################################################################
+ #                                    TO-DO:                                             #
+ #########################################################################################
+ *****************************************************************************************
+ * GENERAL                                                                               *
+ *****************************************************************************************
+ * 1- [COMPLETED] REPLACE ALL PERRORS WITH strerror_r() TO BE ABLE TO LOG IT VIA THE
+ * 				| LOGGING PTHREAD
+ * 				L--> CREATED Log_error() FOUND IN POSIX_Qs.h
+ *
+ * 2- [COMPLETED] UPDATE SendToThreadQ() TO USE PARAMETERS INSTEAD OF STRUCT INPUT
+ *
+ * 3- [COMPLETED] FIX THREAD KILLING BUG
+ *
+ * 4- [COMPLETED] ADD POORN FINAL CODE
+ * 
+ * 5- [COMPLETED] LOG ALIVE MSGS TO LOGGER 
+ * 
+ * 6- [COMPLETED] ADD COMMENTS
+ * 
+ * 7- [COMPLETED] TEST KILLING 
+ * 
+ * 8- [COMPLETED] KILL SOCKET WHEN TEMP AND LUX ARE DEAD
+ * 
+ * 9- [COMPLETED] ADD USR LEDS
+ * 				L--> CREATED GPIO_PINs.h/.c 
+ * 
+ * 
+ *****************************************************************************************
+ * MAIN THREAD                                                                           *
+ *****************************************************************************************
+ * 1- [COMPLETED] FIX BUG OF GETTING USER LOG FILE PATH
+ *
+ * 2- [COMPLETED] IMPLEMENT METHOD TO CHECK CHILD THREADS ARE ALIVE AT SOME INTERVAL
+ * 				L--> USED AliveThreads GLOBAL VARIABLE (CODE IN MAIN)
+ *
+ * 3- [COMPLETED] IMPLEMENT METHOD TO CLEANLY EXIT WHEN REQUESTED (MAKE CHILD EXITS PROPERLY
+ * 		 THEN MAIN)
+ *
+ * 4- [COMPLETED] LOG ERROR INFORMATION AND INDICATE ERROR WITH BB USR LEDS (EG. MISSING SENSOR)
+ * 				|--> USR0 LED ON => Error in Logging pThread
+ * 				|--> USR1 LED ON => Error in Socket pThread
+ * 				|--> USR2 LED ON => Error in Temp pThread
+ * 				L--> USR3 LED ON => Error in Lux pThread
+ * 
+ * 5- [COMPLETED] CREATE MY OWN TIME GET FUNCTION
+ * 				L--> FOUND IN My_Time .h/.c
+ *
+ * 6- [COMPLETED] IMPLEMENT SIGNAL HANDLER
+ *
+ * 7- [COMPLETED] DISPLAY THREAD IDS AT START-UP
+ *
+ * 8- [SCRAPPED] KILL ONLY SPECIFIED THREADS
+ *
+ *
+ *****************************************************************************************
+ * LOGGING THREAD                                                                        *
+ *****************************************************************************************
+ * 1- [COMPLETED] CREATE LOGGING PROTOTYPE
+ * 				L--> CREATED LoggingThread.h/.c
+ *
+ * 2- [COMPLETED] CREATE MSG STRUCTURE
+ * 				L--> FOUND IN OurDefines.h
+ *
+ * 3- [COMPLETED] TEST LOGGING
+ *
+ * 4- [COMPLETED] CREATE LOGGING PTHREAD
+ *
+ * 5- [COMPLETED] CREATE POSIX QUEUE FOR LOGGING THREAD
+ *
+ * 6- [COMPLETED] TEST SENDING MSG FROM pMAIN -> pLOGGING
+ *
+ * 7- [COMPLETED] ADD FILE PATH ERROR HANDLING
+ *
+ * 8- [COMPLETED] LOG FILE PATH CONFIGURABLE AT RUN-TIME
+ *
+ * 9- [COMPLETED] START-UP LOGGING SUCCESS/FAIL REPORT
+ *
+ * 10- [COMPLETED] ADD LOG LEVEL TO STRUCT
+ * 				L--> ADDED NEW ELEMENT TO OUR MSG STRUCT (STRING)
+ *
+ * 11- [COMPLETED] CREATE A MSG SEND TO QUEUE FUNCTION
+ * 				L--> CREATED POSIX_Qs .h/.c
+ *
+ * 12- [COMPLETED] MAKE LOGGING THREAD BLOCK AND WAIT FOR ANY MESSAGES
+ *
+ * 13- [COMPLETED] HANDLE INITS OF OTHER THREAD TO LOGGING THREAD
+ *
+ * 14- [] NEED TO FIND A WAY TO WAIT UNTIL ALL MESSAGES ARE READ BEFORE KILLING
+ * 
+ *
+ *****************************************************************************************
+ * SOCKET THREAD                                                                         *
+ *****************************************************************************************
+ * 1- [POORN HANDLED IT] CREATE THE INTERNAL STRUCTURE OF THE SOCKET QUEUE
+ *
+ * 2- [COMPLETED] ADD POORN CODE
+ * 
+ *
+ *****************************************************************************************
+ * TEMP THREAD                                                                           *
+ *****************************************************************************************
+ * 1- [COMPLETED] INIT THIS THREAD
+ *
+ * 2- [COMPLETED] ADD POORN CODE
+ * 
+ *
+ *****************************************************************************************
+ * LUX THREAD                                                                            *
+ *****************************************************************************************
+ * 1- [COMPLETED] INIT THIS THREAD
+ *
+ * 2- [COMPLETED] ADD POORN CODE
+ * 
+ *
+#########################################################################################*/
+
+/* This function handles all our signals coming in. 
+ * In addition, it handles the retries done for both the Temp and Lux sensors, 
+ * After 10 attempts to reconnect with the sensor, if it does not succeed, the thread 
+ * will be killed */
+void signal_function(int value)
+{
+	if(value == SIGVTALRM	)
+	{
+			if(Socket_State == Socket_Online)
+			{
+//				pthread_mutex_lock(&lock_var);
+				AliveThreads |= SOCKET_ALIVE;
+//				pthread_mutex_unlock(&lock_vaecho 1 > valuer);
+			}
+			Counter += 1;
+			if(Counter == Counter_Threshold)
+			{
+					Counter = 0;
+					if(Temp_Error_Retry > Temp_No_Retry)
+					{
+							Temp_Error_Retry -= 1;
+							if(close(temp_file_des))		Log_error(Main,"Closing the Temperature I2C File", errno, LOGGING_AND_LOCAL);
+							SendToThreadQ(Main, Logging, "INFO", "Trying to get the Temperature Sensor Online... Calling TempThread_Init()");
+							if(TempThread_Init())		Log_error(Main,"Attempt to get the Temperature Sensor Online Failed... Exiting TempThread_Init()", errno, LOGGING_AND_LOCAL);
+							else
+							{
+								Temp_Error_Retry = Temp_No_Retry;
+								Temp_Sensor_State = Sensor_Online;
+								SendToThreadQ(Main, Logging, "INFO", "Temperature Sensor is Now Online...");
+							}
+					}
+
+					if(Lux_Error_Retry > Lux_No_Retry)
+					{
+							Lux_Error_Retry -= 1;
+							if(close(lux_file_des))		Log_error(Main,"Closing the Lux I2C File", errno, LOGGING_AND_LOCAL);
+							SendToThreadQ(Main, Logging, "INFO", "Trying to get the Lux Sensor Online... Calling LuxThread_Init()");
+							if(LuxThread_Init())		Log_error(Main,"Attempt to get the Lux Sensor Online Failed... Exiting LuxThread_Init()", errno, LOGGING_AND_LOCAL);
+							else
+							{
+								Lux_Error_Retry = Lux_No_Retry;
+								Lux_Sensor_State = Sensor_Online;
+								SendToThreadQ(Main, Logging, "INFO", "Lux Sensor is Now Online...");
+							}
+					}
+			}
+			if(sig_sync == 0)
+			{
+				flag = Temperature_Signal;
+				sig_sync = 1;
+			}
+			else
+			{
+				flag = Lux_Signal;
+				sig_sync = 0;
+			}
+	}
+	else
+	{
+			flag = value;
+			Socket_State = Socket_Offline;
+			if(kill_socket_init())        printf("\nSocket killing failed\n");
+	}
+}
+
+void sig_setup(void)
+{
+		// Configuring timer and signal action
+		struct sigaction custom_signal_action;
+		struct itimerval custom_timer;
+
+		// Set all initial values to 0 in the structure
+		memset(&custom_signal_action, 0, sizeof (custom_signal_action));
+
+		// Set signal action handler to point to the address of the target function (to execute on receiving signal)
+		custom_signal_action.sa_handler = &signal_function;
+
+		// Setting interval according to define in main.h
+		custom_timer.it_interval.tv_sec = 0;
+		custom_timer.it_interval.tv_usec = Timer_Interval * 1000;
+
+		// Setting initial delay to 2s
+		custom_timer.it_value.tv_sec = 2;
+		custom_timer.it_value.tv_usec = 0;
+
+		// Setting the signal action to kick in the handler function for these 3 signals
+		sigaction(SIGVTALRM, &custom_signal_action, 0);
+		sigaction(SIGUSR1, &custom_signal_action, 0);
+		sigaction(SIGUSR2, &custom_signal_action, 0);
+
+		// Starting timer
+		setitimer(ITIMER_VIRTUAL, &custom_timer, 0);
+}
+
+
+
+
+int main(int argc, char *argv[])
+{
+	struct Pthread_ArgsStruct args;						//Create the pthread args structure
+
+	char User_LogFilePath[100];							//This will store the log file path location to pass to the Logging pthread
+
+	printf("Starting... PID: %d\n\n", getpid());
+
+	/* Check if the user entered a logfile path */
+	if(argc > 1)
+	{
+		sprintf(User_LogFilePath, "%s", argv[1]);
+		printf("Chosen log file path: %s\n", User_LogFilePath);
+	}
+
+	/* Else, use default logfile path */
+	else
+	{
+		sprintf(User_LogFilePath, "./LogFile.txt");
+		printf("No logfile path chosen. Using default location './LogFile.txt'\n\n");
+	}
+
+
+	/* Store filepath to pass to pThreads */
+	strcpy(args.LogFile_Path, User_LogFilePath);
+
+
+	if( pthread_mutex_init(&lock, NULL) != 0 )
+	{
+		Log_error(Main, "pthread_mutex_init()", errno, LOCAL_ONLY);
+		return -1;
+	}
+
+	if( pthread_mutex_init(&lock_var, NULL) != 0 )
+	{
+		Log_error(Main, "pthread_mutex_init()", errno, LOCAL_ONLY);
+		return -1;
+	}
+	
+	
+	/* Init LEDs */
+	Init_PIN_Output(USR0_PORT, USR0_PIN);
+	Init_PIN_Output(USR1_PORT, USR1_PIN);
+	Init_PIN_Output(USR2_PORT, USR2_PIN);
+	Init_PIN_Output(USR3_PORT, USR3_PIN);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 0);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 0);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 0);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 0);
+	
+	
+	/* Create the needed pThreads */
+	pthread_t Log_pThread, Socket_pThread, Temp_pThread, Lux_pThread;
+
+
+	/* Create Logging pThread */
+	if(pthread_create(&Log_pThread, NULL, &LoggingThread, (void *)&args) != 0)
+	{
+		Log_error(Main, "Logging pthread_create()", errno, LOCAL_ONLY);
+		PIN_Set_Value(USR0_PORT, USR0_PIN, 1);
+	}
+	else
+	{
+		printf("[%lf] Main pThread SUCCESS: Created Logging Thread!\n\n", GetCurrentTime());
+	}
+
+	/* Need to sleep a bit to make sure the Logging Thread starts up first */
+	sleep(2);
+
+
+	/* Create Socket pThread */
+	if(pthread_create(&Socket_pThread, NULL, &SocketThread, NULL) != 0)
+	{
+		Log_error(Main, "Socket pthread_create()", errno, LOGGING_AND_LOCAL);
+		PIN_Set_Value(USR1_PORT, USR1_PIN, 1);
+	}
+	else
+	{
+		printf("[%lf] Main pThread SUCCESS: Created Socket Thread!\n\n", GetCurrentTime());
+	}
+	
+	sleep(2);
+
+	/* Create Temp pThread */
+	if(pthread_create(&Temp_pThread, NULL, &TempThread, NULL) != 0)
+	{
+		Log_error(Main, "Temp pthread_create()", errno, LOGGING_AND_LOCAL);
+		PIN_Set_Value(USR2_PORT, USR2_PIN, 1);
+	}
+	else
+	{
+		printf("[%lf] Main pThread SUCCESS: Created Temp Thread!\n\n", GetCurrentTime());
+	}
+		sleep(2);
+
+
+	/* Create Lux pThread */
+	if(pthread_create(&Lux_pThread, NULL, &LuxThread, NULL) != 0)
+	{
+		Log_error(Main, "Lux pthread_create()", errno, LOGGING_AND_LOCAL);
+		PIN_Set_Value(USR3_PORT, USR3_PIN, 1);
+	}
+	else
+	{
+		printf("[%lf] Main pThread SUCCESS: Created Lux Thread!\n\n", GetCurrentTime());
+	}
+
+	/* Let other pThreads execute before checking */
+	sleep(2);
+
+	/* Setting up Signals */
+	sig_setup();
+
+	/* While there is at least one thread alive: */
+	while( AliveThreads != 0 )
+	{
+		/* Create a copy of the global variable, AliveThreads, and store it in the local variable CurrentAlive.
+		 * This is done as to not halt the other pThreads trying to use AliveThreads. It is faster to update
+		 * local variable and do work rather than halt all threads until the alive check is done. */
+		pthread_mutex_lock(&lock_var);
+		uint8_t CurrentAlive = AliveThreads;		//Create a copy of the global variable
+		AliveThreads = 0;							//Reset alive bits
+		pthread_mutex_unlock(&lock_var);
+
+
+		/* Check Logging pThread */
+		if(CurrentAlive & LOGGING_ALIVE)
+		{
+			if(LogKillSafe == 0)
+			{
+				printf("[%lf] Main pThread(INFO): Logging pThread is alive\n\n", GetCurrentTime());
+			}
+			else
+			{
+				SendToThreadQ(Main, Logging, "INFO", "Logging pThread is alive");
+			}
+		}
+		else
+		{
+			Log_error(Main, "Logging pThread is not alive", 42, LOCAL_ONLY);
+			PIN_Set_Value(USR0_PORT, USR0_PIN, 1);
+		}
+
+		/* Check Socket pThread */
+		if(CurrentAlive & SOCKET_ALIVE)
+		{
+			if(LogKillSafe == 0)
+			{
+				printf("[%lf] Main pThread(INFO): Socket pThread is alive\n\n", GetCurrentTime());
+			}
+			else
+			{
+				SendToThreadQ(Main, Logging, "INFO", "Socket pThread is alive");
+			}
+		}
+		else
+		{
+			/* This if decides weather logging is alive to log to it or just stdout */
+			if(LogKillSafe == 0)
+			{
+				Log_error(Main, "Socket pThread is not alive", 42, LOCAL_ONLY);
+			}
+			else
+			{
+				Log_error(Main, "Socket pThread is not alive", 42, LOGGING_AND_LOCAL);
+			}
+			
+			/* Turn LED ON */
+			PIN_Set_Value(USR1_PORT, USR1_PIN, 1);
+		}
+
+		/* Check Temp pThread */
+		if(CurrentAlive & TEMP_ALIVE)
+		{
+			if(LogKillSafe == 0)
+			{
+				printf("[%lf] Main pThread(INFO): Temp pThread is alive\n\n", GetCurrentTime());
+			}
+			else
+			{
+				SendToThreadQ(Main, Logging, "INFO", "Temp pThread is alive");
+			}
+		}
+		else
+		{
+			/* This if decides weather logging is alive to log to it or just stdout */
+			if(LogKillSafe == 0)
+			{
+				Log_error(Main, "Temp pThread is not alive", 42, LOCAL_ONLY);
+			}
+			else
+			{
+				Log_error(Main, "Temp pThread is not alive", 42, LOGGING_AND_LOCAL);
+			}
+			
+			/* Turn LED ON */
+			PIN_Set_Value(USR2_PORT, USR2_PIN, 1);
+		
+		}
+
+		/* Check Lux pThread */
+		if(CurrentAlive & LUX_ALIVE)
+		{
+			if(LogKillSafe == 0)
+			{
+				printf("[%lf] Main pThread(INFO): Lux pThread is alive\n\n", GetCurrentTime());
+			}
+			else
+			{
+				SendToThreadQ(Main, Logging, "INFO", "Lux pThread is alive");
+			}
+		}
+		else
+		{
+			/* This if decides weather logging is alive to log to it or just stdout */
+			if(LogKillSafe == 0)
+			{
+				Log_error(Main, "Lux pThread is not alive", 42, LOCAL_ONLY);
+			}
+			else
+			{
+				Log_error(Main, "Lux pThread is not alive", 42, LOGGING_AND_LOCAL);
+			}
+			
+			/* Turn LED ON */
+			PIN_Set_Value(USR3_PORT, USR3_PIN, 1);
+			
+		}
+		
+		/* If the Temp and Lux threads were killed, kill the Socket thread as well */
+		if(LogKillSafe <= 1)
+		{
+			Socket_State = Socket_Offline;
+			if(kill_socket_init())        printf("\nSocket killing failed\n");
+		}
+		
+		/* Check again after defined secs */
+		sleep(Alive_Testing_Interval);
+	}
+
+	printf("[%lf] Main pThread(INFO): All Threads were terminated. Exiting...\n\n", GetCurrentTime());
+
+	/* Wait for pThreads to finish */
+	pthread_join(Log_pThread, NULL);
+	pthread_join(Socket_pThread, NULL);
+	pthread_join(Temp_pThread, NULL);
+	pthread_join(Lux_pThread, NULL);
+	
+	/* Exit animation */
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 1);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 0);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 0);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 0);
+	
+	sleep(1);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 0);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 1);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 0);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 0);
+	
+	sleep(1);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 0);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 0);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 1);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 0);
+	
+	sleep(1);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 0);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 0);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 0);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 1);
+	
+	sleep(1);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 1);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 1);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 1);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 1);
+	
+	sleep(1);
+	
+	PIN_Set_Value(USR0_PORT, USR0_PIN, 0);
+	PIN_Set_Value(USR1_PORT, USR1_PIN, 0);
+	PIN_Set_Value(USR2_PORT, USR2_PIN, 0);
+	PIN_Set_Value(USR3_PORT, USR3_PIN, 0);
+}/*
+*	File: GPIO_PINs.h
+*	Purpose: This header file has functions that handle interacting with the BeagleBone Ports and PINs
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
+
+#ifndef GPIO_PINS_H_
+#define GPIO_PINS_H_
+
+#include <stdint.h>
+#include <stdbool.h>
+
+/**************************************************************************************************************
+ * USAGE: This function will set a chosen PIN as OUTPUT on the BeagleBone Black
+ *
+ * PARAMETERS:
+ *            - uint8_t Port => Port number (GPIO'X')
+ *            - uint8_t PIN => PIN number
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void Init_PIN_Output(uint8_t Port, uint8_t PIN);
+
+
+/**************************************************************************************************************
+ * USAGE: This function will set a chosen PIN value to a 1 or a 0 on the BeagleBone Black
+ *
+ * PARAMETERS:
+ *            - uint8_t Port => Port number (GPIO'X')
+ *            - uint8_t PIN => PIN number
+ *            - bool Value => Set PIN to ON (1/TRUE) or OFF (0/FALSE)
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void PIN_Set_Value(uint8_t Port, uint8_t PIN, bool Value);
+
+
+#endif /* GPIO_PINS_H_ *//*
+*	File: My_Time.h
+*	Purpose: The header file contains a simple function that gets the time
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
+#ifndef MY_TIME_H_
+#define MY_TIME_H_
+
+
+/**************************************************************************************************************
+ * USAGE: This function will simply get the current time and return its double value. It was created to 
+ *        simplify our code since we need to get the current time many times and having it in this format 
+ *        helps keeps things organized.
+ *
+ * PARAMETERS:
+ *            - NONE
+ *
+ * RETURNS: double CurrentTime
+ *
+ **************************************************************************************************************/
+double GetCurrentTime();
+
+
+
+#endif /* MY_TIME_H_ *//*
+*	File: My_Time.c
+*	Purpose: The source file contains a simple function that gets the time
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
+
+#include "My_Time.h"
+#include <sys/time.h>
+#include <stdio.h>
+
+
+double GetCurrentTime()
+{
+	/* Declaring structure for time */
+	struct timeval time;
+	
+	/* Get current time and save it */
+	gettimeofday(&time, 0);
+	
+	/* Combine the Secs with uSecs by typecasting
+     * Long Int to Double and return as 1 Double value */
+	return (double)(time.tv_sec)+(((double)(time.tv_usec))/1000000);
+}/*
+*	File: SocketThread.h
+*	Purpose: The header file containing functionalities and thread of Socket
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
+
+#ifndef SOCKETTHREAD_H_
+#define SOCKETTHREAD_H_
+
+#include "Global_Defines.h"
+
+#define Temp_Warning_Req			1
+#define Lux_Warning_Req				2
+
+/**************************************************************************************************************
+ * USAGE: This function contains all what the socket pThread will do.
+ *
+ * PARAMETERS:
+ *            - NONE
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+void * SocketThread(void * args);
+
+
+
+/**************************************************************************************************************
+ * USAGE: This function will be called initially when the Socket Thread is first initialized.
+ *
+ * PARAMETERS:
+ *            - NONE
+ *
+ * RETURNS: NONE
+ *
+ **************************************************************************************************************/
+uint8_t SocketThread_Init(void);
+
+
+uint8_t kill_socket_init(void);
+
+
+#endif /* SOCKETTHREAD_H_ */
+/*
+*		File: LoggingThread.c
+*		Purpose: The source file containing functionalities and thread of Logger
+*		Owners: Poorn Mehta & Khalid AlAwadhi
+*		Spring 2019
+*/
+
+#include "LoggingThread.h"
+#include "Global_Defines.h"
+#include "My_Time.h"
+#include "POSIX_Qs.h"
+
+pthread_mutex_t lock_var;
+
+sig_atomic_t flag;
+uint8_t LogKillSafe;
+uint8_t AliveThreads;
+
+
+void * LoggingThread(void * args)
+{
+	/* Get the passed arguments */
+	struct Pthread_ArgsStruct *Arguments = args;
+
+	/* Init the log file */
+	LogFile_Init(Arguments->LogFile_Path);
+
+
+	/* Create the Logging Thread POSIX queue */
+	mqd_t MQ;											//Message queue descriptor
+
+	/* Initialize the queue attributes */
+	struct mq_attr attr;
+	attr.mq_flags = 0;									/* Flags: 0 or O_NONBLOCK */
+	attr.mq_maxmsg = 10;								/* Max. # of messages on queue */
+	attr.mq_msgsize = sizeof(MsgStruct);				/* Max. message size (bytes) */
+	attr.mq_curmsgs = 0;								/* # of messages currently in queue */
+
+	/* Create the Logging Thread queue to get messages from other pThreads */
+	MQ = mq_open(LOGGING_QUEUE, O_CREAT | O_RDONLY | O_CLOEXEC, 0666, &attr);
+	if(MQ == (mqd_t) -1)
+	{
+		Log_error(Logging, "mq_open()", errno, LOCAL_ONLY);
+	}
+
+	MsgStruct MsgRecv;									//Temp variable used to store received messages
+
+	/* Loop forever waiting for Msgs from other pThreads while at least one is alive */
+	while(LogKillSafe > 0)
+	{
+		/* Block until a msg is received */
+		if(mq_receive(MQ, &MsgRecv, sizeof(MsgStruct), NULL) == -1)
+		{
+			Log_error(Logging, "mq_receive()", errno, LOCAL_ONLY);
+		}
+		/* If a msg is received, log it */
+		else
+		{
+			LogFile_Log(Arguments->LogFile_Path, &MsgRecv);
+
+			/* Set alive bit */
+			pthread_mutex_lock(&lock_var);
+			AliveThreads |= LOGGING_ALIVE;
+			pthread_mutex_unlock(&lock_var);
+		}
+	}
+
+	/* If we reach this point, it means a KILL signal was passed (USR1 or USR2) and */
+	/* the other pThreads terminated successfully, we must now kill the Logging Thread */
+	printf("[%lf] Logging pThread(INFO): No other threads are alive - Killing Logging Thread\n\n", GetCurrentTime());
+
+	pthread_mutex_lock(&lock_var);
+	AliveThreads &= ~LOGGING_ALIVE;
+	pthread_mutex_unlock(&lock_var);
+
+	if(mq_unlink(LOGGING_QUEUE) != 0)
+	{
+		Log_error(Logging, "mq_unlink()", errno, LOCAL_ONLY);
+	}
+	else
+	{
+		printf("[%lf] Logging pThread: Successfully unlinked Logging queue!\n\n", GetCurrentTime());
+	}
+
+	printf("[%lf] Logging Thread: Logging Thread has terminated successfully and will now exit\n\n", GetCurrentTime());
+
+	return 0;
+}
+
+
+
+void LogFile_Init(char* LogFilePath)
+{
+	/* File pointer */
+	FILE *MyFileP;
+
+	/* Modify the permissions of the file to be write and open the file (anything stored previously will be erased) */
+	MyFileP = fopen(LogFilePath, "w");
+
+	if(MyFileP == NULL)
+	{
+		printf("!!! FATAL ERROR: Could not open log file: %s\n", LogFilePath);
+		exit(1);
+	}
+
+	/* NOTE:
+	 * Statements are stored in strings because we want to have a debug output functionality.
+	 * So, if we change anything in fprintf() we will also need to go to the printf() and
+	 * change the text t#include <sys/syscall.h>here. Using string and storing our text there makes it easier
+	 * as we only need to change the text in one place rather than two. */
+	char* Line1 = "[%lf] Logging Thread: Logfile successfully created! TID: %ld\n\n";
+	char* Line2 = "***************************************\n";
+	char* Line3 = "*     APES Project 1:                 *\n";
+	char* Line4 = "*       *insert cool name here*       *\n";
+	char* Line5 = "*                                     *\n";
+	char* Line6 = "*  By: Khalid AlAwadhi | Poorn Mehta  *\n";
+	char* Line7 = "*                         v1.8(final) *\n";
+	char* Line8 = "***************************************\n\n";
+
+	fprintf(MyFileP, Line1, GetCurrentTime(), syscall(SYS_gettid));
+	fprintf(MyFileP, Line2);
+	fprintf(MyFileP, Line3);
+	fprintf(MyFileP, Line4);
+	fprintf(MyFileP, Line5);
+	fprintf(MyFileP, Line6);
+	fprintf(MyFileP, Line7);
+	fprintf(MyFileP, Line8);
+
+	/* Flush file output */
+	fflush(MyFileP);
+
+	/* Close the file */
+	fclose(MyFileP);
+
+
+#ifdef DEBUG_PRINTF
+	printf(Line1, GetCurrentTime(), syscall(SYS_gettid));
+	printf(Line2);
+	printf(Line3);
+	printf(Line4);
+	printf(Line5);
+	printf(Line6);
+	printf(Line7);
+	printf(Line8);
+#endif
+
+}
+
+
+
+void LogFile_Log(char* LogFilePath, MsgStruct* Message)
+{
+	/* File pointer */
+	FILE *MyFileP;
+
+	/* Modify the permissions of the file to append */
+	MyFileP = fopen(LogFilePath, "a");
+
+	if(MyFileP == NULL)
+	{
+		printf("!! ERROR: Could not open log file: %s\n", LogFilePath);
+		printf("	|--> Logging from source '%u' failed\n", Message->Source);
+		printf("	|--> Destination: %u\n", Message->Dest);
+		printf("	|--> Log Level: %s\n", Message->LogLevel);
+		printf("	L--> Message: %s\n\n", Message->Msg);
+		return;
+	}
+
+	/* Get the source number and turn it into a string.
+	 * This is done for readability in the logging file */
+	char* Source_text;
+	switch(Message->Source)
+	{
+		case Main:
+			Source_text = "Main Thread";
+			break;
+
+		case Logging:
+			Source_text = "Logging Thread";
+			break;
+
+		case Socket:
+			Source_text = "Socket Thread";
+			break;
+
+		case Temp:
+			Source_text = "Temp Thread";
+			break;
+
+		case Lux:
+			Source_text = "Lux Thread";
+			break;
+
+		default:
+			Source_text = "Unknown Thread";
+			break;
+	}
+
+
+	/* This string will store the text to output later on (just a temp variable) */
+	char* text;
+
+	switch(Message->Dest)
+	{
+		case Main:
+			text = "[%lf] Main Thread(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+
+			#ifdef DEBUG_PRINTF
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+			#endif
+			break;
+
+		case Logging:
+			text = "[%lf] Logging Thread(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+
+			#ifdef DEBUG_PRINTF
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+			#endif
+			break;
+
+		case Socket:
+			text = "[%lf] Socket Thread(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+
+			#ifdef DEBUG_PRINTF
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+			#endif
+			break;
+
+		case Temp:
+			text = "[%lf] Temp Thread(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+
+			#ifdef DEBUG_PRINTF
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+			#endif
+			break;
+
+		case Lux:
+			text = "[%lf] Lux Thread(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+
+			#ifdef DEBUG_PRINTF
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+			#endif
+			break;
+
+		default:
+			text = "[%lf] Unknown Thread '%u'(%s): Msg(%s): %s\n		L-> Source: '%s'\n\n";
+			fprintf(MyFileP, text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+
+			#ifdef DEBUG_PRINTF
+			printf(text, GetCurrentTime(), Message->LogLevel, Message->Msg, Source_text);
+			#endif
+			break;
+	}
+
+	/* Flush file output */
+	fflush(MyFileP);
+
+	/* Close the file */
+	fclose(MyFileP);
+}
+/*
+*	File: POSIX_Qs.c
+*	Purpose: This source file has functions that handles IPC between pThreads
+*	Owners: Poorn Mehta & Khalid AlAwadhi
+*	Spring 2019
+*/
+#include <mqueue.h>
+#include <stdio.h>
+#include <string.h>
+#include <errno.h>
+
+#include "POSIX_Qs.h"
+#include "Global_Defines.h"
+#include "My_Time.h"
+
+
+void SendToThreadQ(uint8_t Src, uint8_t Dst, char* Log, char* Message)
+{
+	MsgStruct Msg2Send =
+	{
+		.Source = Src,
+		.Dest = Dst
+	};
+	strcpy(Msg2Send.LogLevel, Log);
+	strcpy(Msg2Send.Msg, Message);
+	
+	mqd_t MQ;						//Message queue descriptor
+	
+	char *DEST_Q_NAME;				//This will store the name of destination queue
+	
+	/* Check what is the destination pThread */
+	switch(Msg2Send.Dest)
+	{
+		case Main:
+			DEST_Q_NAME = MAIN_QUEUE;
+			break;
+
+		case Logging:
+			DEST_Q_NAME = LOGGING_QUEUE;
+			break;
+
+		case Socket:
+			DEST_Q_NAME = SOCKET_QUEUE;
+			break;
+
+		case Temp:
+			DEST_Q_NAME = TEMP_QUEUE;
+			break;
+
+		case Lux:
+			DEST_Q_NAME = LUX_QUEUE;
+			break;
+
+		default:
+			Msg2Send.Dest = Logging;
+			DEST_Q_NAME = LOGGING_QUEUE;
+			char *text1 = "WARNING - No destination thread for this msg!";
+			strcpy(Msg2Send.LogLevel, text1);
+			break;
+	}
+	
+	/* Open the chosen Thread POSIX queue - write only */
+	MQ = mq_open(DEST_Q_NAME, O_WRONLY | O_CLOEXEC);
+	
+	char ErrMsg[250];								//Temp variable
+	
+	/* Error check */
+	if(MQ == (mqd_t) -1)
+	{
+		sprintf(ErrMsg, "SendToThreadQ() => mq_open(), attempted to open '%u' queue, called by Thread '%u'", Msg2Send.Dest, Msg2Send.Source);
+		Log_error(0, ErrMsg, errno, LOCAL_ONLY);
+	}
+	
+	/* Send Msg to POSIX queue */
+	if(mq_send(MQ, &Msg2Send, sizeof(MsgStruct), 0) != 0)
+	{
+		sprintf(ErrMsg, "SendToThreadQ() => mq_send(), attempted to send message '%s' from '%u' to '%u'", Msg2Send.Msg, Msg2Send.Source, Msg2Send.Dest);
+		Log_error(0, ErrMsg, errno, LOCAL_ONLY);
+	}
+	
+	if(mq_close(MQ) != 0)
+	{
+		sprintf(ErrMsg, "SendToThreadQ() => mq_close(), attempted to close '%u' queue", Msg2Send.Source);
+		Log_error(0, ErrMsg, errno, LOCAL_ONLY);
+	}
+}
+
+
+void Log_error(uint8_t Src, char* Err_Msg, int errnum, uint8_t SendToLogging)
+{
+	char Error_Log[150];										//Stores the complete error message
+	char ErrMsg_strerror[150];									//Stores the strerror_r error message
+	
+	strerror_r(errnum, ErrMsg_strerror, 150);					//Get error via a thread-safe function
+	
+	sprintf(Error_Log, "%s: %s", Err_Msg, ErrMsg_strerror);		//Combine user message with the strerror
+	
+	
+	/* Get name of source */
+	char* Source_text; 
+	switch(Src)
+	{
+		case Main:
+			Source_text = "Main Thread";
+			break;
+
+		case Logging:
+			Source_text = "Logging Thread";
+			break;
+
+		case Socket:
+			Source_text = "Socket Thread";
+			break;
+
+		case Temp:
+			Source_text = "Temp Thread";
+			break;
+
+		case Lux:
+			Source_text = "Lux Thread";
+			break;
+
+		default:
+			Source_text = "Unknown Thread";
+			break;
+	}
+			
+			
+	/* Output error depending on chosen mode */
+	switch(SendToLogging)
+	{
+		case LOGGING_ONLY:
+			SendToThreadQ(Src, Logging, "ERROR", Error_Log);
+			break;
+
+		case LOGGING_AND_LOCAL:
+			printf("[%lf] Error in Thread '%s' => %s\n\n", GetCurrentTime(), Source_text, Error_Log);
+			SendToThreadQ(Src, Logging, "ERROR", Error_Log);
+			break;
+			
+		default:
+			printf("[%lf] Error in Thread '%s' => %s\n\n", GetCurrentTime(), Source_text, Error_Log);
+			break;
+	}
+}
+
+
+
+bool Main_AliveCheck(uint8_t Chosen_Dest, MsgStruct* Msg2Check)
+{
+	if( (Msg2Check->Source == Main) && (Msg2Check->Dest == Chosen_Dest) && (strcmp("Are you alive?", Msg2Check->Msg) == 0) )
+	{
+		SendToThreadQ(Msg2Check->Dest, Main, "INFO", "Yes, I am alive");
+		return true; 
+	}
+	return false;
+}
+
+
+bool Main_AliveCheck_Resp(uint8_t Chosen_Dest, MsgStruct* Msg2Check)
+{
+	/* Get name of source */
+	char* Source_text; 
+	switch(Chosen_Dest)
+	{
+		case Main:
+			Source_text = "Main Thread";
+			break;
+
+		case Logging:
+			Source_text = "Logging Thread";
+			break;
+
+		case Socket:
+			Source_text = "Socket Thread";
+			break;
+
+		case Temp:
+			Source_text = "Temp Thread";
+			break;
+
+		case Lux:
+			Source_text = "Lux Thread";
+			break;
+
+		default:
+			Source_text = "Unknown Thread";
+			break;
+	}
+		
+	char TempTxt[150];
+	if( (Msg2Check->Source == Chosen_Dest) && (strcmp("Yes, I am alive", Msg2Check->Msg) == 0) )
+	{
+		sprintf(TempTxt, "Received response from '%s': %s", Source_text, Msg2Check->Msg);
+		SendToThreadQ(Main, Logging, "INFO", TempTxt);
+		return true;
+	}
+	else
+	{
+		sprintf(TempTxt, "Expected response from '%s' but got from '%u'???", Source_text, Msg2Check->Source);
+		SendToThreadQ(Main, Logging, "INFO", TempTxt);
+		return false;
+	}
+
+}

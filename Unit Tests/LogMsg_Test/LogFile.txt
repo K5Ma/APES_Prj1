@@ -1,0 +1,13 @@
+[1554086688.542307] Logging Thread: Logfile successfully created! TID: 98065
+
+***************************************
+*     APES Project 1:                 *
+*       *insert cool name here*       *
+*                                     *
+*  By: Khalid AlAwadhi | Poorn Mehta  *
+*               UNIT TEST             *
+***************************************
+
+[1554086688.542563] Logging Thread(INFO): This is a unit test. If you can read this in the txt file, it works!
+		L-> Source: 'Main Thread'
+
