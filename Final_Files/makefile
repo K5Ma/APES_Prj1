@@ -1,11 +1,17 @@
 all: Prj1 clean
 
-CC      = /home/k5m/buildroot/output/host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gcc.br_real
+#CC      = /home/k5m/buildroot/output/host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gcc.br_real
+
 CFLAGS  = -lpthread -lrt -D_BSD_SOURCE -lm -I.
 
 objects = main.o My_Time.o POSIX_Qs.o LoggingThread.o SocketThread.o TempThread.o LuxThread.o GPIO_PINs.o
 
-Prj1: $(objects)
+khalid_Prj1: CC = /home/k5m/buildroot/output/host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gcc.br_real
+khalid_Prj1: $(objects)
+	$(CC) $(CFLAGS) -o Prj1 $(objects)
+
+poorn_Prj1: CC = /home/poorn/Workspace/old_buildroot/buildroot/output/host/usr/bin/arm-buildroot-linux-uclibcgnueabihf-gcc.br_real
+poorn_Prj1: $(objects)
 	$(CC) $(CFLAGS) -o Prj1 $(objects)
 
 main.o: Global_Defines.h My_Time.h POSIX_Qs.h LoggingThread.h SocketThread.h TempThread.h LuxThread.h GPIO_PINs.h
