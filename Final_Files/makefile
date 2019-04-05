@@ -14,6 +14,9 @@ poorn_Prj1: CC = /home/poorn/Workspace/old_buildroot/buildroot/output/host/usr/b
 poorn_Prj1: $(objects)
 	$(CC) $(CFLAGS) -o Prj1 $(objects)
 
+client: socket_client.c
+	gcc -o socket_client socket_client.c -I.
+
 main.o: Global_Defines.h My_Time.h POSIX_Qs.h LoggingThread.h SocketThread.h TempThread.h LuxThread.h GPIO_PINs.h
 My_Time.o: My_Time.h
 POSIX_Qs.o: POSIX_Qs.h Global_Defines.h My_Time.h
